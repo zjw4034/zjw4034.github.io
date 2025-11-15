@@ -1,11 +1,13 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>多周期股票趋势看板（1D / 1W / 1M / 6M / 1Y / 3Y）</title>
+  <title>Multi-Period Stock Dashboard (Trend + Volume)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Chart.js 用于渐变小曲线和大图 -->
+  <!-- Mini charts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lightweight Charts for big chart -->
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     :root {
       --bg: #020617;
@@ -149,6 +151,27 @@
       padding: 8px 8px 10px;
       background: #020617;
     }
+
+    .sector-tools {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .sector-tools .sort-btn {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .sector-tools .sort-btn:hover {
+      border-color: var(--accent);
+      color: #e5e7eb;
+    }
+
     .table-wrapper {
       width: 100%;
       overflow-x: auto;
@@ -174,34 +197,22 @@
       z-index: 1;
     }
     th.stock-col {
-      min-width: 90px; /* 股票列更窄 */
+      min-width: 90px;
     }
-    th.sortable {
-      cursor: pointer;
-      position: relative;
-    }
-    th.sortable::after {
-      content: "↕";
-      font-size: 0.65rem;
-      color: var(--muted);
-      margin-left: 4px;
-    }
-    th.sortable[data-sort-dir="asc"]::after {
-      content: "↑";
-      color: #60a5fa;
-    }
-    th.sortable[data-sort-dir="desc"]::after {
-      content: "↓";
-      color: #60a5fa;
-    }
-
     td.symbol-cell {
       text-align: left;
     }
-    .symbol {
+    .symbol-click {
       font-weight: 600;
       font-size: 0.85rem;
       color: #bfdbfe;
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-style: dotted;
+      text-underline-offset: 3px;
+    }
+    .symbol-click:hover {
+      color: #e0f2fe;
     }
     .name {
       font-size: 0.7rem;
@@ -232,7 +243,6 @@
       width: 120px !important;
       height: 40px !important;
     }
-    .spark-canvas { cursor: pointer; }
     .change-text {
       font-size: 0.7rem;
     }
@@ -248,7 +258,6 @@
       color: var(--muted);
     }
 
-    /* 位置列样式 */
     .pos-cell {
       min-width: 170px;
     }
@@ -265,7 +274,7 @@
     .pos-label {
       font-size: 0.65rem;
       color: var(--muted);
-      width: 2.2em;
+      width: 2.4em;
     }
     .pos-bar {
       flex: 1;
@@ -286,76 +295,134 @@
       text-align: right;
     }
 
-    /* 大 K 线弹窗 */
-    .modal {
+    .buy-cell {
+      min-width: 90px;
+    }
+    .buy-score {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+    .buy-strong {
+      background: rgba(34,197,94,0.15);
+      color: #6ee7b7;
+      border-color: rgba(34,197,94,0.7);
+    }
+    .buy-good {
+      background: rgba(59,130,246,0.15);
+      color: #bfdbfe;
+      border-color: rgba(59,130,246,0.7);
+    }
+    .buy-neutral {
+      background: rgba(148,163,184,0.15);
+      color: #e5e7eb;
+      border-color: rgba(148,163,184,0.7);
+    }
+    .buy-weak {
+      background: rgba(249,115,22,0.15);
+      color: #fed7aa;
+      border-color: rgba(249,115,22,0.7);
+    }
+    .buy-bad {
+      background: rgba(248,113,113,0.15);
+      color: #fecaca;
+      border-color: rgba(248,113,113,0.7);
+    }
+
+    .modal-overlay {
       position: fixed;
       inset: 0;
+      background: rgba(15,23,42,0.85);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 50;
     }
-    .modal.show { display: flex; }
-    .modal-backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgba(15,23,42,0.75);
+    .modal-overlay.show {
+      display: flex;
     }
-    .modal-content {
-      position: relative;
+    .modal-card {
       background: #020617;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid #1f2937;
       width: 90%;
       max-width: 900px;
       max-height: 80vh;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
-      z-index: 51;
+      padding: 12px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.7);
     }
     .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.85rem;
+      margin-bottom: 6px;
+      gap: 8px;
     }
-    .modal-close {
-      border: none;
-      background: transparent;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 1.1rem;
+    .modal-title {
+      font-size: 1rem;
+      font-weight: 600;
     }
-    .modal-close:hover { color: #fca5a5; }
-    .modal-periods {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
+    .modal-subtitle {
       font-size: 0.75rem;
-    }
-    .modal-periods button {
-      padding: 3px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: #020617;
       color: var(--muted);
-      cursor: pointer;
     }
-    .modal-periods button.active {
-      border-color: var(--accent);
-      color: #fff;
-      background: rgba(37,99,235,0.5);
+    .modal-header-right {
+      display:flex;
+      gap:6px;
+      align-items:center;
+    }
+    .modal-close-btn,
+    .modal-download-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #111827;
+      color: #e5e7eb;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .modal-close-btn:hover,
+    .modal-download-btn:hover {
+      background: #1f2937;
     }
     .modal-body {
       flex: 1;
-      min-height: 260px;
+      min-height: 300px;
+      display:flex;
+      flex-direction:column;
     }
-    .modal-body canvas {
-      width: 100% !important;
-      height: 260px !important;
+    #timeframe-buttons {
+      margin-bottom:8px;
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+    .tf-btn {
+      border-radius:999px;
+      border:1px solid #1f2937;
+      background:#020617;
+      color:#9ca3af;
+      font-size:0.75rem;
+      padding:3px 8px;
+      cursor:pointer;
+    }
+    .tf-btn.active {
+      background:#1d4ed8;
+      color:#e5e7eb;
+      border-color:#3b82f6;
+    }
+
+    #big-chart-container {
+      flex:1;
+      border-radius:8px;
+      border:1px solid #1f2937;
+      background:#020617;
+      overflow:hidden;
     }
 
     @media (max-width: 768px) {
@@ -381,115 +448,95 @@
 <div class="app">
   <div class="header">
     <div>
-      <div class="title">多周期股票趋势看板</div>
+      <div class="title">Multi-Period Stock Dashboard</div>
       <div class="subtitle">
-        每行一只股票 · 1D / 1W / 1M / 6M / 1Y / 3Y 曲线 · 区间位置 · 行业折叠 · 本地缓存 · 纯 HTML
+        Sectors · 3Y / 1Y / 6M / 1M / 1W / 1D mini charts · BuyScore · filter & sorting · big trend chart (area + MA20/60 + volume)
       </div>
     </div>
     <div class="status">
-      <div id="status-text">初始化中...</div>
-      <div style="font-size:0.7rem;">刷新间隔：<span id="refresh-sec">30</span>s · 缓存：5min</div>
+      <div id="status-text">Initializing...</div>
+      <div style="font-size:0.7rem;">Refresh: <span id="refresh-sec">30</span>s · Cache: 5 min</div>
     </div>
   </div>
 
-  <!-- 控制面板：添加股票 / 行业选择 -->
   <div class="controls">
     <div>
-      <label for="symbol-input">股票代码</label>
-      <input id="symbol-input" placeholder="例如 MSFT / NVDA / 0700.HK" />
+      <label for="symbol-input">Ticker</label>
+      <input id="symbol-input" placeholder="e.g. MSFT / NVDA / 0700.HK" />
     </div>
     <div>
-      <label for="sector-select">所属行业</label>
+      <label for="sector-select">Sector</label>
       <select id="sector-select"></select>
     </div>
     <div id="custom-sector-wrap" style="display:none;">
-      <label for="custom-sector-input">新行业名</label>
-      <input id="custom-sector-input" placeholder="例如: Crypto / Energy" />
+      <label for="custom-sector-input">New sector</label>
+      <input id="custom-sector-input" placeholder="e.g. Crypto / Energy" />
     </div>
     <div>
-      <button id="add-btn">➕ 添加股票</button>
+      <button id="add-btn">➕ Add stock</button>
     </div>
     <div style="margin-left:auto;">
-      <span class="badge">📦 本地缓存 &nbsp;|&nbsp; 🔁 30s 自动更新</span>
+      <span class="badge">📦 Local cache &nbsp;|&nbsp; 🔁 Auto-refresh 30s</span>
     </div>
   </div>
 
-  <!-- 展开/折叠全部行业 -->
   <div class="controls" style="margin-top:6px;">
-    <button id="expand-all">⬆ 展开全部行业</button>
-    <button id="collapse-all">⬇ 折叠全部行业</button>
+    <button id="expand-all">⬆ Expand all sectors</button>
+    <button id="collapse-all">⬇ Collapse all sectors</button>
+    <label style="display:flex;align-items:center;gap:4px;font-size:0.8rem;color:var(--muted);margin-left:auto;">
+      <input type="checkbox" id="filter-strong" />
+      Only show BuyScore ≥ 80
+    </label>
   </div>
 
-  <!-- 行业容器 -->
   <div id="sectors" class="sectors"></div>
 </div>
 
-<!-- 大 K 线弹窗 -->
-<div id="kline-modal" class="modal">
-  <div class="modal-backdrop"></div>
-  <div class="modal-content">
+<div id="chart-modal" class="modal-overlay">
+  <div class="modal-card" onclick="event.stopPropagation();">
     <div class="modal-header">
-      <div id="kline-title">K 线图</div>
-      <button class="modal-close" id="kline-close">✕</button>
+      <div>
+        <div id="modal-title" class="modal-title"></div>
+        <div id="modal-subtitle" class="modal-subtitle"></div>
+      </div>
+      <div class="modal-header-right">
+        <button id="download-png" class="modal-download-btn">⬇ PNG</button>
+        <button id="modal-close" class="modal-close-btn">✕ Close</button>
+      </div>
     </div>
-    <div class="modal-periods" id="kline-periods"></div>
     <div class="modal-body">
-      <canvas id="kline-canvas"></canvas>
+      <div id="timeframe-buttons">
+        <button class="tf-btn" data-range="1d"  data-int="1m"  data-key="1m">1m</button>
+        <button class="tf-btn" data-range="5d"  data-int="15m" data-key="15m">15m</button>
+        <button class="tf-btn" data-range="1mo" data-int="1h"  data-key="1h">1h</button>
+        <button class="tf-btn" data-range="3mo" data-int="1d"  data-key="1D">1D</button>
+        <button class="tf-btn" data-range="6mo" data-int="1d"  data-key="6M">6M</button>
+        <button class="tf-btn" data-range="1y"  data-int="1wk" data-key="1Y">1Y</button>
+        <button class="tf-btn" data-range="3y"  data-int="1wk" data-key="3Y">3Y</button>
+        <button class="tf-btn" data-range="max" data-int="1wk" data-key="MAX">MAX</button>
+      </div>
+      <div id="big-chart-container" style="width:100%;height:100%;"></div>
     </div>
   </div>
 </div>
 
 <script>
-  // ========== 配置 ========== //
-  const REFRESH_MS = 30000;                        // 自动刷新 30 秒
-  const CACHE_TTL_MS = 5 * 60_000;                 // 缓存 5 分钟
-  const STORAGE_SECTORS = "multi_period_sectors_v3";
-  const STORAGE_CACHE   = "multi_period_cache_v3";
+  const REFRESH_MS = 30000;
+  const CACHE_TTL_MS = 5 * 60_000;
+  const STORAGE_SECTORS = "multi_period_sectors_trend_v1";
+  const STORAGE_CACHE   = "multi_period_cache_trend_v1";
   document.getElementById("refresh-sec").textContent = REFRESH_MS / 1000;
 
-  // 多周期配置（1D / 1W / 1M / 6M / 1Y / 3Y）
   const PERIODS = [
-  { key: "3Y", label: "3Y", range: "3y",   interval: "1mo" }, 
-  { key: "1Y", label: "1Y", range: "1y",   interval: "1wk" }, 
-  { key: "6M", label: "6M", range: "6mo",  interval: "1d"  }, 
-  { key: "1M", label: "1M", range: "3mo",  interval: "1d"  },
-  { key: "1W", label: "1W", range: "1mo",  interval: "1d"  },
-  { key: "1D", label: "1D", range: "5d",   interval: "1h"  },
+    { key: "3Y", label: "3Y", range: "3y",   interval: "1mo" },
+    { key: "1Y", label: "1Y", range: "1y",   interval: "1wk" },
+    { key: "6M", label: "6M", range: "6mo",  interval: "1d"  },
+    { key: "1M", label: "1M", range: "3mo",  interval: "1d"  },
+    { key: "1W", label: "1W", range: "1mo",  interval: "1d"  },
+    { key: "1D", label: "1D", range: "5d",   interval: "1h"  },
   ];
+  const POSITION_PERIODS = ["3Y","1Y","6M","1M","1W"];
 
-  // 每个周期对应的多个 range/interval 组合（fallback）
-  const PERIOD_FETCH_CONFIG = {
-    "1D": [
-      { range: "5d", interval: "1h" },
-      { range: "5d", interval: "30m" },
-      { range: "5d", interval: "15m" },
-    ],
-    "1W": [
-      { range: "1mo", interval: "1d" },
-      { range: "1mo", interval: "1h" },
-    ],
-    "1M": [
-      { range: "3mo", interval: "1d" },
-      { range: "3mo", interval: "1h" },
-    ],
-    "6M": [
-      { range: "6mo", interval: "1d" },
-      { range: "6mo", interval: "1wk" },
-    ],
-    "1Y": [
-      { range: "1y", interval: "1wk" },
-      { range: "1y", interval: "1d" },
-    ],
-    "3Y": [
-      { range: "3y", interval: "1mo" },
-      { range: "5y", interval: "1mo" },
-    ],
-  };
-
-  // 区间位置列显示的周期（1D 太短，就不放这列了）
-  const POSITION_PERIODS = ["3Y", "1Y", "6M", "1M", "1W"];
-
-  // 默认行业 & 股票
   const defaultSectors = [
     {
       name: "Technology",
@@ -574,34 +621,60 @@
   ];
 
   let sectors = [];
-  const charts = {}; // key: symbol_periodKey -> Chart 实例
-
-  // 大图弹窗状态
-  let modalChart = null;
-  let modalSymbol = null;
-  let modalPeriodKey = "1D";
-
-  // Yahoo Finance + CORS 代理
+  const charts = {};
   const PROXY = "https://corsproxy.io/?url=";
 
-  async function fetchYahoo(symbol, range, interval) {
-    const url =
-      `https://query1.finance.yahoo.com/v8/finance/chart/` +
-      `${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
-    const res = await fetch(PROXY + encodeURIComponent(url));
-    return res.json();
-  }
+  let lwChart = null;
+  let areaSeries = null;
+  let ma20Series = null;
+  let ma60Series = null;
+  let volumeSeries = null;
+  let currentBigSymbol = null;
+  let currentBigName = null;
+  let bigChartResizeObserver = null;
 
-  // ====== 本地缓存（时间序列） ====== //
+  // ---------- 安全工具函数 ----------
   function loadCache() {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_CACHE) || "{}");
-    } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem(STORAGE_CACHE) || "{}"); }
+    catch { return {}; }
   }
   function saveCache(obj) {
-    try {
-      localStorage.setItem(STORAGE_CACHE, JSON.stringify(obj));
-    } catch {}
+    try { localStorage.setItem(STORAGE_CACHE, JSON.stringify(obj)); }
+    catch {}
+  }
+
+  function safeGetYahooResult(json) {
+    const r = json?.chart?.result;
+    if (!r || !Array.isArray(r) || r.length === 0) return null;
+    return r[0];
+  }
+
+  async function fetchYahoo(symbol, range, interval) {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
+    const fullUrl = PROXY + encodeURIComponent(url);
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await fetch(fullUrl);
+        const text = await res.text();
+        let json = null;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          console.warn("Non-JSON from proxy for", symbol, range, interval);
+          return null;
+        }
+        if (json?.chart?.error) {
+          console.warn("Yahoo error:", symbol, json.chart.error);
+          return null;
+        }
+        return json;
+      } catch (e) {
+        console.warn(`fetchYahoo error [${symbol}] attempt ${attempt}`, e);
+        if (attempt === 3) return null;
+      }
+    }
+    return null;
   }
 
   async function getSeries(symbol, periodKey) {
@@ -610,68 +683,155 @@
     const now = Date.now();
 
     if (cache[cacheKey] && now - cache[cacheKey].ts < CACHE_TTL_MS) {
-      return cache[cacheKey].series;
+      return cache[cacheKey].series || null;
     }
+    const cfg = PERIODS.find(p => p.key === periodKey);
+    if (!cfg) return null;
 
-    const configs = PERIOD_FETCH_CONFIG[periodKey] || [];
-    for (const cfg of configs) {
-      try {
-        const json = await fetchYahoo(symbol, cfg.range, cfg.interval);
-        const closes =
-          json.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
-        const filtered = closes.filter(v => v != null);
-        if (filtered.length >= 2) {
-          cache[cacheKey] = { ts: now, series: filtered };
-          saveCache(cache);
-          return filtered;
-        }
-      } catch (e) {
-        console.error("Fetch error", symbol, periodKey, cfg, e);
+    try {
+      const json = await fetchYahoo(symbol, cfg.range, cfg.interval);
+      if (!json) return null;
+      const result = safeGetYahooResult(json);
+      if (!result) return null;
+
+      const closes = result?.indicators?.quote?.[0]?.close || [];
+      const filtered = (closes || []).filter(v => v != null);
+      if (!filtered || filtered.length < 2) {
+        return null;
       }
+      cache[cacheKey] = { ts: now, series: filtered };
+      saveCache(cache);
+      return filtered;
+    } catch (e) {
+      console.error("getSeries error", symbol, periodKey, e);
+      return null;
     }
-    return null;
   }
 
-  // 百分比变化：从序列首到尾
   function percentChange(series) {
     if (!series || series.length < 2) return null;
     const a = series[0];
     const b = series[series.length - 1];
-    if (a == null || b == null) return null;
-    return Number(((b - a) / a * 100).toFixed(2));
+    if (a == null || b == null || a === 0) return null;
+    const val = ((b - a) / a) * 100;
+    if (!Number.isFinite(val)) return null;
+    return Number(val.toFixed(2));
   }
 
-  // 价格区间位置：last 在 [min, max] 内的百分比
   function positionPercent(series) {
     if (!series || series.length < 2) return null;
     const min = Math.min(...series);
     const max = Math.max(...series);
     const last = series[series.length - 1];
-    if (!isFinite(min) || !isFinite(max) || !isFinite(last)) return null;
+    if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(last)) {
+      return null;
+    }
     if (max <= min) return 50;
-    return ((last - min) / (max - min)) * 100;
+    const val = ((last - min) / (max - min)) * 100;
+    if (!Number.isFinite(val)) return null;
+    return val;
   }
 
-  // ====== 行业数据持久化 ====== //
+  function computePositionScore(seriesPerPeriod) {
+    const p3Y = positionPercent(seriesPerPeriod["3Y"]);
+    const p1Y = positionPercent(seriesPerPeriod["1Y"]);
+    const p6M = positionPercent(seriesPerPeriod["6M"]);
+    const _p3 = Number.isFinite(p3Y) ? p3Y : 50;
+    const _p1 = Number.isFinite(p1Y) ? p1Y : 50;
+    const _p6 = Number.isFinite(p6M) ? p6M : 50;
+    const posWeighted = 0.40*_p3 + 0.35*_p1 + 0.25*_p6;
+    let posScore = (1 - posWeighted/100)*100;
+    if (!Number.isFinite(posScore)) posScore = 50;
+    return Math.max(0, Math.min(100, posScore));
+  }
+
+  function computeTrendScore(pctMap) {
+    const d3Y = pctMap["3Y"] ?? 0;
+    const d1Y = pctMap["1Y"] ?? 0;
+    const d6M = pctMap["6M"] ?? 0;
+    const d1M = pctMap["1M"] ?? 0;
+    const d1W = pctMap["1W"] ?? 0;
+    const d1D = pctMap["1D"] ?? 0;
+
+    const weighted =
+      0.10*d3Y +
+      0.20*d1Y +
+      0.25*d6M +
+      0.20*d1M +
+      0.15*d1W +
+      0.10*d1D;
+    let score = 50 + weighted*1.2;
+    if (!Number.isFinite(score)) score = 50;
+    return Math.max(0, Math.min(100, score));
+  }
+
+  function computeAccelerationScore(pctMap) {
+    const d3Y = pctMap["3Y"] ?? 0;
+    const d1Y = pctMap["1Y"] ?? 0;
+    const d6M = pctMap["6M"] ?? 0;
+    const d1M = pctMap["1M"] ?? 0;
+    const d1W = pctMap["1W"] ?? 0;
+
+    const acc1 = d1W - d1M;
+    const acc2 = d1M - d6M;
+    const acc3 = d6M - d1Y;
+    const acc4 = d1Y - d3Y;
+    const accs = [acc1,acc2,acc3,acc4];
+    const pos = accs.filter(a=>a>0).length;
+    const neg = accs.filter(a=>a<0).length;
+    const consistency = (pos - neg)/4;
+    const avgAccel = accs.reduce((a,b)=>a+b,0)/4;
+    let score = 50 + consistency*30 + avgAccel*1.5;
+    if (!Number.isFinite(score)) score = 50;
+    return Math.max(0, Math.min(100, score));
+  }
+
+  function computeBuyScore(seriesPerPeriod, pctMap) {
+    // 如果所有周期都没有有效数据，直接返回 null
+    const hasValidSeries = Object.values(seriesPerPeriod).some(
+      s => Array.isArray(s) && s.length >= 2
+    );
+    if (!hasValidSeries) {
+      return {
+        buyScore: null,
+        posScore: null,
+        trendScore: null,
+        accelScore: null
+      };
+    }
+
+    const posScore   = computePositionScore(seriesPerPeriod);
+    const trendScore = computeTrendScore(pctMap);
+    const accelScore = computeAccelerationScore(pctMap);
+
+    let buy =
+      0.35*posScore +
+      0.40*trendScore +
+      0.25*accelScore;
+    if (!Number.isFinite(buy)) buy = 50;
+    buy = Math.max(0, Math.min(100, buy));
+    return {
+      buyScore: Math.round(buy),
+      posScore,
+      trendScore,
+      accelScore
+    };
+  }
+
   function loadSectors() {
     try {
       const raw = localStorage.getItem(STORAGE_SECTORS);
-      if (raw) {
-        sectors = JSON.parse(raw);
-      } else {
-        sectors = defaultSectors;
-      }
+      if (raw) sectors = JSON.parse(raw);
+      else sectors = defaultSectors;
     } catch {
       sectors = defaultSectors;
     }
   }
   function saveSectors() {
-    try {
-      localStorage.setItem(STORAGE_SECTORS, JSON.stringify(sectors));
-    } catch {}
+    try { localStorage.setItem(STORAGE_SECTORS, JSON.stringify(sectors)); }
+    catch {}
   }
 
-  // ====== 渲染行业选择下拉 ====== //
   function renderSectorSelect() {
     const select = document.getElementById("sector-select");
     select.innerHTML = "";
@@ -683,19 +843,18 @@
     });
     const optCustom = document.createElement("option");
     optCustom.value = "__custom__";
-    optCustom.textContent = "➕ 新行业...";
+    optCustom.textContent = "➕ New sector...";
     select.appendChild(optCustom);
   }
 
-  // ====== 渲染行业 + 表格 ====== //
   function renderSectors() {
     const container = document.getElementById("sectors");
     container.innerHTML = "";
-
     sectors.forEach(sec => {
       const details = document.createElement("details");
       details.className = "sector";
-      details.open = true; // 默认展开
+      details.open = true;
+      details.dataset.sectorName = sec.name;
 
       const summary = document.createElement("summary");
       const left = document.createElement("div");
@@ -711,7 +870,7 @@
 
       const right = document.createElement("div");
       right.className = "sector-toggle";
-      right.textContent = "点击折叠 / 展开";
+      right.textContent = "Click to collapse / expand";
 
       summary.appendChild(left);
       summary.appendChild(right);
@@ -720,6 +879,14 @@
       const body = document.createElement("div");
       body.className = "sector-body";
 
+      const tools = document.createElement("div");
+      tools.className = "sector-tools";
+      tools.innerHTML = `
+        <button class="sort-btn" data-sector="${sec.name}" data-dir="desc">Sort by BuyScore ↓</button>
+        <button class="sort-btn" data-sector="${sec.name}" data-dir="asc">Sort by BuyScore ↑</button>
+      `;
+      body.appendChild(tools);
+
       const wrapper = document.createElement("div");
       wrapper.className = "table-wrapper";
 
@@ -727,15 +894,15 @@
       const thead = document.createElement("thead");
       const trHead = document.createElement("tr");
       trHead.innerHTML = `
-        <th class="stock-col">股票</th>
-        ${PERIODS.map(p => `<th class="sortable" data-sort-period="${p.key}">${p.label} 曲线</th>`).join("")}
-        <th>区间位置</th>
+        <th class="stock-col">Symbol</th>
+        ${PERIODS.map(p => `<th>${p.label} trend</th>`).join("")}
+        <th>Position</th>
+        <th>BuyScore</th>
       `;
       thead.appendChild(trHead);
       table.appendChild(thead);
 
       const tbody = document.createElement("tbody");
-
       sec.stocks.forEach(stock => {
         const tr = document.createElement("tr");
         tr.dataset.symbol = stock.symbol;
@@ -744,13 +911,15 @@
         const tdSymbol = document.createElement("td");
         tdSymbol.className = "symbol-cell";
         tdSymbol.innerHTML = `
-          <div class="symbol">${stock.symbol}</div>
+          <div class="symbol-click" data-symbol="${stock.symbol}" data-name="${stock.name || ""}">
+            ${stock.symbol}
+          </div>
           <div class="name">${stock.name || ""}</div>
         `;
         const removeBtn = document.createElement("button");
         removeBtn.className = "remove-btn";
-        removeBtn.textContent = "删";
-        removeBtn.title = `从 ${sec.name} 移除`;
+        removeBtn.textContent = "Del";
+        removeBtn.title = `Remove ${stock.symbol} from ${sec.name}`;
         removeBtn.dataset.symbol = stock.symbol;
         removeBtn.dataset.sector = sec.name;
         tdSymbol.appendChild(removeBtn);
@@ -765,9 +934,6 @@
           canvas.id = `${stock.symbol}_${p.key}`;
           canvas.width = 120;
           canvas.height = 40;
-          canvas.classList.add("spark-canvas");
-          canvas.dataset.symbol = stock.symbol;
-          canvas.dataset.period = p.key;
 
           const changeDiv = document.createElement("div");
           changeDiv.id = `${stock.symbol}_${p.key}_change`;
@@ -780,7 +946,6 @@
           tr.appendChild(td);
         });
 
-        // 位置列
         const tdPos = document.createElement("td");
         tdPos.className = "pos-cell";
         const posContainer = document.createElement("div");
@@ -788,6 +953,15 @@
         posContainer.id = `${stock.symbol}_pos`;
         tdPos.appendChild(posContainer);
         tr.appendChild(tdPos);
+
+        const tdBuy = document.createElement("td");
+        tdBuy.className = "buy-cell";
+        const buySpan = document.createElement("span");
+        buySpan.id = `${stock.symbol}_buyscore`;
+        buySpan.className = "buy-score buy-neutral";
+        buySpan.textContent = "--";
+        tdBuy.appendChild(buySpan);
+        tr.appendChild(tdBuy);
 
         tbody.appendChild(tr);
       });
@@ -800,75 +974,61 @@
     });
   }
 
-  // ====== 绘制小曲线 ====== //
   function drawSpark(symbol, periodKey, series) {
     const canvas = document.getElementById(`${symbol}_${periodKey}`);
     if (!canvas || !series || series.length < 2) return;
-
     const ctx = canvas.getContext("2d");
-    const trimmed = series.slice(-40); // 最多 40 个点
-    if (trimmed.length < 2) return;
+    const trimmed = series.slice(-40);
     const up = trimmed[trimmed.length - 1] >= trimmed[0];
 
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    const gradient = ctx.createLinearGradient(0,0,0,canvas.height);
     if (up) {
-      gradient.addColorStop(0, "rgba(74,222,128,0.8)");
-      gradient.addColorStop(1, "rgba(22,163,74,0.05)");
+      gradient.addColorStop(0,"rgba(74,222,128,0.8)");
+      gradient.addColorStop(1,"rgba(22,163,74,0.05)");
     } else {
-      gradient.addColorStop(0, "rgba(248,113,113,0.8)");
-      gradient.addColorStop(1, "rgba(127,29,29,0.05)");
+      gradient.addColorStop(0,"rgba(248,113,113,0.8)");
+      gradient.addColorStop(1,"rgba(127,29,29,0.05)");
     }
 
     const chartKey = `${symbol}_${periodKey}`;
-    if (charts[chartKey]) {
-      charts[chartKey].destroy();
-    }
+    if (charts[chartKey]) charts[chartKey].destroy();
 
-    charts[chartKey] = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: trimmed.map((_, i) => i),
-        datasets: [
-          {
-            data: trimmed,
-            borderColor: up ? "#4ade80" : "#f97373",
-            backgroundColor: gradient,
-            fill: true,
-            tension: 0.35,
-            borderWidth: 1.4,
-            pointRadius: 0,
-          },
-        ],
+    charts[chartKey] = new Chart(ctx,{
+      type:"line",
+      data:{
+        labels:trimmed.map((_,i)=>i),
+        datasets:[{
+          data:trimmed,
+          borderColor: up ? "#4ade80" : "#f97373",
+          backgroundColor: gradient,
+          fill:true,
+          tension:0.35,
+          borderWidth:1.4,
+          pointRadius:0,
+        }]
       },
-      options: {
-        responsive: false,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { enabled: false },
-        },
-        scales: {
-          x: { display: false },
-          y: { display: false },
-        },
-      },
+      options:{
+        responsive:false,
+        maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{enabled:false} },
+        scales:{ x:{display:false}, y:{display:false} }
+      }
     });
   }
 
-  // ====== 渲染位置列 ====== //
   function renderPositionCell(symbol, seriesPerPeriod) {
     const container = document.getElementById(`${symbol}_pos`);
     if (!container) return;
     let html = "";
-    POSITION_PERIODS.forEach(key => {
+    POSITION_PERIODS.forEach(key=>{
       const s = seriesPerPeriod[key];
       let pos = positionPercent(s);
       let txt = "--";
       let width = 0;
-      if (pos != null) {
-        const clamped = Math.max(0, Math.min(100, pos));
-        width = Math.max(4, Math.round(clamped));
-        txt = Math.round(clamped) + "%";
+      if (Number.isFinite(pos)) {
+        const clamped = Math.max(0,Math.min(100,pos));
+        width = Math.max(4,Math.round(clamped));
+        txt = Math.round(clamped)+"%";
       }
       html += `
         <div class="pos-row">
@@ -883,54 +1043,356 @@
     container.innerHTML = html;
   }
 
-  // ====== 更新所有股票的数据 ====== //
+  function renderBuyScore(symbol, buyScore, posScore, trendScore, accelScore) {
+    const el = document.getElementById(`${symbol}_buyscore`);
+    if (!el) return;
+    if (buyScore == null || Number.isNaN(buyScore)) {
+      el.textContent = "--";
+      el.className = "buy-score buy-neutral";
+      el.title = "Not enough data";
+      return;
+    }
+    let cls = "buy-score ";
+    if (buyScore >= 80) cls += "buy-strong";
+    else if (buyScore >= 60) cls += "buy-good";
+    else if (buyScore >= 40) cls += "buy-neutral";
+    else if (buyScore >= 20) cls += "buy-weak";
+    else cls += "buy-bad";
+    el.className = cls;
+    el.textContent = String(buyScore);
+    el.title =
+      `Position score: ${Math.round(posScore)}\n` +
+      `Trend score: ${Math.round(trendScore)}\n` +
+      `Acceleration score: ${Math.round(accelScore)}\n` +
+      `Final BuyScore: ${buyScore}`;
+  }
+
+  function applyFilters() {
+    const chk = document.getElementById("filter-strong");
+    const active = chk && chk.checked;
+    const rows = document.querySelectorAll("tr[data-symbol]");
+    rows.forEach(row=>{
+      if (!active) {
+        row.style.display = "";
+      } else {
+        const scoreStr = row.dataset.buyscore;
+        const score = scoreStr ? parseInt(scoreStr,10) : null;
+        if (score != null && score >= 80) row.style.display = "";
+        else row.style.display = "none";
+      }
+    });
+  }
+
+  function sortSectorByBuyScore(sectorName, dir) {
+    const details = document.querySelector(`details.sector[data-sector-name="${sectorName}"]`);
+    if (!details) return;
+    const tbody = details.querySelector("tbody");
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll("tr[data-symbol]"));
+    rows.sort((a,b)=>{
+      const sa = parseInt(a.dataset.buyscore || "0",10);
+      const sb = parseInt(b.dataset.buyscore || "0",10);
+      if (Number.isNaN(sa)) return 1;
+      if (Number.isNaN(sb)) return -1;
+      return dir === "asc" ? sa - sb : sb - sa;
+    });
+    rows.forEach(r=>tbody.appendChild(r));
+  }
+
+  function attachBigChartResizeObserver() {
+    const container = document.getElementById("big-chart-container");
+    if (!container) return;
+
+    if (bigChartResizeObserver) {
+      bigChartResizeObserver.disconnect();
+      bigChartResizeObserver = null;
+    }
+
+    bigChartResizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        if (lwChart) {
+          const { width, height } = entry.contentRect;
+          if (width > 10 && height > 10) {
+            lwChart.resize(width, height);
+          }
+        }
+      }
+    });
+
+    bigChartResizeObserver.observe(container);
+  }
+
+  function computeMAForLine(data, windowSize) {
+    const out = [];
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) {
+      sum += data[i].value;
+      if (i >= windowSize) sum -= data[i - windowSize].value;
+      if (i >= windowSize - 1) {
+        out.push({
+          time: data[i].time,
+          value: sum / windowSize,
+        });
+      }
+    }
+    return out;
+  }
+
+  async function drawBigChart(symbol, range, interval) {
+    const container = document.getElementById("big-chart-container");
+    if (!container) return;
+
+    const { clientWidth: w, clientHeight: h } = container;
+    if (w < 20 || h < 20) {
+      console.warn("Container not ready, retry drawBigChart...");
+      return setTimeout(() => drawBigChart(symbol, range, interval), 80);
+    }
+
+    container.innerHTML = "";
+    if (lwChart) {
+      lwChart.remove();
+      lwChart = null;
+      areaSeries = null;
+      ma20Series = null;
+      ma60Series = null;
+      volumeSeries = null;
+    }
+
+    lwChart = LightweightCharts.createChart(container, {
+      width: w,
+      height: h,
+      layout: {
+        background: { type: 'solid', color: '#020617' },
+        textColor: '#e5e7eb',
+      },
+      grid: {
+        vertLines: { color: '#111827' },
+        horzLines: { color: '#111827' },
+      },
+      timeScale: { borderColor: '#1f2937' },
+      rightPriceScale: { borderColor: '#1f2937' },
+    });
+
+    areaSeries = lwChart.addAreaSeries({
+      lineColor: '#3b82f6',
+      topColor: 'rgba(59,130,246,0.45)',
+      bottomColor: 'rgba(15,23,42,0.0)',
+      lineWidth: 2,
+    });
+
+    volumeSeries = lwChart.addHistogramSeries({
+      priceScaleId: 'volume',
+      priceFormat: { type: 'volume' },
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+    lwChart.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+
+    try {
+      const json = await fetchYahoo(symbol, range, interval);
+      if (!json) {
+        console.warn("No data for big chart", symbol);
+        return;
+      }
+      const result = safeGetYahooResult(json);
+      if (!result) {
+        console.warn("No result in big chart", symbol);
+        return;
+      }
+
+      const ts = result?.timestamp || [];
+      const q = result?.indicators?.quote?.[0] || {};
+      const closes = q.close || [];
+      const vols = q.volume || [];
+
+      const lineData = [];
+      const volData  = [];
+
+      for (let i = 0; i < ts.length; i++) {
+        if (closes[i] == null) continue;
+        const time = ts[i];
+
+        lineData.push({
+          time,
+          value: closes[i],
+        });
+
+        const prev = i > 0 && closes[i-1] != null ? closes[i-1] : closes[i];
+        volData.push({
+          time,
+          value: vols[i] ?? 0,
+          color: closes[i] >= prev
+            ? "rgba(74,222,128,0.5)"
+            : "rgba(248,113,113,0.5)",
+        });
+      }
+
+      if (!lineData.length) {
+        console.warn("No line data for big chart", symbol);
+        return;
+      }
+
+      areaSeries.setData(lineData);
+      volumeSeries.setData(volData);
+
+      const ma20 = computeMAForLine(lineData, 20);
+      const ma60 = computeMAForLine(lineData, 60);
+
+      ma20Series = lwChart.addLineSeries({
+        color: "#38bdf8",
+        lineWidth: 1.2,
+      });
+      ma20Series.setData(ma20);
+
+      ma60Series = lwChart.addLineSeries({
+        color: "#fbbf24",
+        lineWidth: 1.2,
+      });
+      ma60Series.setData(ma60);
+
+      lwChart.timeScale().fitContent();
+    } catch (e) {
+      console.error("Big chart error:", e);
+    }
+  }
+
+  function highlightTimeframeButton(key) {
+    document.querySelectorAll(".tf-btn").forEach(btn=>{
+      if (btn.dataset.key === key) btn.classList.add("active");
+      else btn.classList.remove("active");
+    });
+  }
+
+  function openBigChart(symbol, name) {
+    currentBigSymbol = symbol;
+    currentBigName = name || "";
+    const modal = document.getElementById("chart-modal");
+    modal.classList.add("show");
+
+    document.getElementById("modal-title").textContent = symbol;
+    document.getElementById("modal-subtitle").textContent = currentBigName;
+
+    const btnDefault = document.querySelector('.tf-btn[data-key="3Y"]');
+    const range = btnDefault.dataset.range;
+    const interval = btnDefault.dataset.int;
+    highlightTimeframeButton("3Y");
+
+    setTimeout(() => {
+      drawBigChart(symbol, range, interval);
+      attachBigChartResizeObserver();
+    }, 150);
+
+    document.querySelectorAll(".tf-btn").forEach(btn => {
+      btn.onclick = () => {
+        const r = btn.dataset.range;
+        const it = btn.dataset.int;
+        const key = btn.dataset.key;
+        highlightTimeframeButton(key);
+        setTimeout(() => {
+          drawBigChart(symbol, r, it);
+          attachBigChartResizeObserver();
+        }, 120);
+      };
+    });
+  }
+
+  function closeBigChart() {
+    const modal = document.getElementById("chart-modal");
+    modal.classList.remove("show");
+    if (bigChartResizeObserver) {
+      bigChartResizeObserver.disconnect();
+      bigChartResizeObserver = null;
+    }
+    if (lwChart) {
+      lwChart.remove();
+      lwChart = null;
+      areaSeries = null;
+      ma20Series = null;
+      ma60Series = null;
+      volumeSeries = null;
+    }
+  }
+
+  function downloadBigChartPng() {
+    if (!lwChart || typeof lwChart.takeScreenshot !== "function") {
+      alert("Screenshot not supported by this version of Lightweight Charts.");
+      return;
+    }
+    const canvas = lwChart.takeScreenshot();
+    if (!canvas || !canvas.toDataURL) {
+      alert("Screenshot failed.");
+      return;
+    }
+    const url = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${currentBigSymbol || "chart"}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
   async function refreshAll() {
     const statusEl = document.getElementById("status-text");
-    statusEl.textContent = "⏳ 正在更新… " + new Date().toLocaleTimeString();
+    statusEl.textContent = "⏳ Refreshing... " + new Date().toLocaleTimeString();
 
     const allRows = document.querySelectorAll("tr[data-symbol]");
     for (const row of allRows) {
-      const symbol = row.dataset.symbol;
-      const seriesPerPeriod = {};
+      try {
+        const symbol = row.dataset.symbol;
+        const seriesPerPeriod = {};
+        const pctMap = {};
 
-      for (const p of PERIODS) {
-        const series = await getSeries(symbol, p.key);
-        seriesPerPeriod[p.key] = series;
+        for (const p of PERIODS) {
+          const changeEl = document.getElementById(`${symbol}_${p.key}_change`);
+          try {
+            const series = await getSeries(symbol, p.key);
+            seriesPerPeriod[p.key] = series;
 
-        const changeEl = document.getElementById(`${symbol}_${p.key}_change`);
+            let pct = null;
+            if (series && series.length >= 2) pct = percentChange(series);
+            pctMap[p.key] = pct;
 
-        if (!series || series.length < 2) {
-          if (changeEl) {
-            changeEl.textContent = "--";
-            changeEl.className = "change-text change-flat";
+            if (!series || series.length < 2 || pct == null) {
+              if (changeEl) {
+                changeEl.textContent = "--";
+                changeEl.className = "change-text change-flat";
+              }
+              continue;
+            }
+
+            if (changeEl) {
+              const sign = pct > 0 ? "+" : "";
+              changeEl.textContent = `${sign}${pct}%`;
+              changeEl.className =
+                "change-text " +
+                (pct > 0 ? "change-up" : pct < 0 ? "change-down" : "change-flat");
+            }
+            drawSpark(symbol, p.key, series);
+          } catch (innerErr) {
+            console.error("Error per symbol/period", symbol, p.key, innerErr);
+            if (changeEl) {
+              changeEl.textContent = "Err";
+              changeEl.className = "change-text change-down";
+            }
           }
-          continue;
         }
 
-        const pct = percentChange(series);
-        if (changeEl) {
-          if (pct == null) {
-            changeEl.textContent = "--";
-            changeEl.className = "change-text change-flat";
-          } else {
-            const sign = pct > 0 ? "+" : "";
-            changeEl.textContent = `${sign}${pct}%`;
-            changeEl.className =
-              "change-text " +
-              (pct > 0 ? "change-up" : pct < 0 ? "change-down" : "change-flat");
-          }
-        }
-
-        drawSpark(symbol, p.key, series);
+        renderPositionCell(symbol, seriesPerPeriod);
+        const { buyScore, posScore, trendScore, accelScore } =
+          computeBuyScore(seriesPerPeriod, pctMap);
+        renderBuyScore(symbol, buyScore, posScore, trendScore, accelScore);
+        row.dataset.buyscore = buyScore == null ? "" : String(buyScore);
+      } catch (rowErr) {
+        console.error("Row-level error", row.dataset.symbol, rowErr);
       }
-
-      renderPositionCell(symbol, seriesPerPeriod);
     }
 
-    statusEl.textContent = "✔ 更新完成 " + new Date().toLocaleTimeString();
+    applyFilters();
+    statusEl.textContent = "✔ Updated at " + new Date().toLocaleTimeString();
   }
 
-  // ====== 添加 / 删除 股票 ====== //
   function addStock() {
     const symbolInput = document.getElementById("symbol-input");
     const sectorSelect = document.getElementById("sector-select");
@@ -944,269 +1406,111 @@
       sectorName = customSectorInput.value.trim();
     }
     if (!sectorName) {
-      alert("请填写行业名称");
+      alert("Please enter a sector name.");
       return;
     }
 
-    let sec = sectors.find(s => s.name === sectorName);
+    let sec = sectors.find(s=>s.name===sectorName);
     if (!sec) {
-      sec = { name: sectorName, stocks: [] };
+      sec = { name: sectorName, stocks:[] };
       sectors.push(sec);
     }
-
-    if (sec.stocks.some(s => s.symbol === symbol)) {
-      alert("该股票在该行业中已存在");
+    if (sec.stocks.some(s=>s.symbol===symbol)) {
+      alert("This stock already exists in that sector.");
       return;
     }
 
-    sec.stocks.push({ symbol, name: "" });
+    sec.stocks.push({ symbol, name:"" });
     saveSectors();
     renderSectorSelect();
     renderSectors();
     refreshAll();
 
     symbolInput.value = "";
-    if (sectorSelect.value === "__custom__") {
-      customSectorInput.value = "";
-    }
+    if (sectorSelect.value === "__custom__") customSectorInput.value = "";
   }
 
   function removeStock(symbol, sectorName) {
-    const sec = sectors.find(s => s.name === sectorName);
+    const sec = sectors.find(s=>s.name===sectorName);
     if (!sec) return;
-    sec.stocks = sec.stocks.filter(s => s.symbol !== symbol);
+    sec.stocks = sec.stocks.filter(s=>s.symbol!==symbol);
     saveSectors();
     renderSectorSelect();
     renderSectors();
     refreshAll();
   }
 
-  // ====== 展开 / 折叠 所有行业 ====== //
   function expandAllSectors() {
-    const list = document.querySelectorAll("details.sector");
-    list.forEach(sec => (sec.open = true));
+    document.querySelectorAll("details.sector").forEach(sec=>sec.open=true);
   }
-
   function collapseAllSectors() {
-    const list = document.querySelectorAll("details.sector");
-    list.forEach(sec => (sec.open = false));
+    document.querySelectorAll("details.sector").forEach(sec=>sec.open=false);
   }
 
   function setupExpandCollapseButtons() {
-    document
-      .getElementById("expand-all")
-      .addEventListener("click", expandAllSectors);
-    document
-      .getElementById("collapse-all")
-      .addEventListener("click", collapseAllSectors);
+    document.getElementById("expand-all").addEventListener("click", expandAllSectors);
+    document.getElementById("collapse-all").addEventListener("click", collapseAllSectors);
   }
 
-  // ====== 大 K 线弹窗 ====== //
-  function setupKlineControls() {
-    const modal = document.getElementById("kline-modal");
-    const closeBtn = document.getElementById("kline-close");
-    const backdrop = modal.querySelector(".modal-backdrop");
-    const periodsContainer = document.getElementById("kline-periods");
-
-    // 构建周期按钮
-    periodsContainer.innerHTML = "";
-    PERIODS.forEach(p => {
-      const btn = document.createElement("button");
-      btn.textContent = p.label;
-      btn.dataset.period = p.key;
-      periodsContainer.appendChild(btn);
-    });
-
-    function setActivePeriodButton() {
-      const buttons = periodsContainer.querySelectorAll("button");
-      buttons.forEach(btn => {
-        btn.classList.toggle(
-          "active",
-          btn.dataset.period === modalPeriodKey
-        );
-      });
-    }
-
-    async function renderKline() {
-      const canvas = document.getElementById("kline-canvas");
-      const ctx = canvas.getContext("2d");
-      const series = await getSeries(modalSymbol, modalPeriodKey);
-      if (!series || series.length < 2) return;
-
-      const data = series;
-      const labels = data.map((_, i) => i + 1);
-
-      if (modalChart) modalChart.destroy();
-
-      modalChart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: `${modalSymbol} ${modalPeriodKey}`,
-              data,
-              borderColor: "#60a5fa",
-              backgroundColor: "rgba(37,99,235,0.25)",
-              fill: true,
-              tension: 0.25,
-              borderWidth: 1.5,
-              pointRadius: 0,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: { enabled: true },
-          },
-          scales: {
-            x: {
-              display: false,
-            },
-            y: {
-              display: true,
-              ticks: {
-                color: "#9ca3af",
-              },
-              grid: {
-                color: "rgba(55,65,81,0.4)",
-              },
-            },
-          },
-        },
-      });
-    }
-
-    async function openKline(symbol, periodKey) {
-      modalSymbol = symbol;
-      modalPeriodKey = periodKey || "1D";
-      document.getElementById("kline-title").textContent =
-        `${modalSymbol} - 多周期线图`;
-      modal.classList.add("show");
-      setActivePeriodButton();
-      await renderKline();
-    }
-
-    function closeKline() {
-      modal.classList.remove("show");
-      if (modalChart) {
-        modalChart.destroy();
-        modalChart = null;
-      }
-    }
-
-    // 暴露到全局用于点击 spark 打开
-    window.openKlineModal = openKline;
-
-    closeBtn.addEventListener("click", closeKline);
-    backdrop.addEventListener("click", closeKline);
-
-    periodsContainer.addEventListener("click", e => {
-      const btn = e.target.closest("button");
-      if (!btn) return;
-      const period = btn.dataset.period;
-      modalPeriodKey = period;
-      setActivePeriodButton();
-      renderKline();
-    });
-  }
-
-  // ====== 排序 ====== //
-  function sortRowsByPeriod(table, periodKey, th) {
-    const tbody = table.querySelector("tbody");
-    const rows = Array.from(tbody.querySelectorAll("tr[data-symbol]"));
-
-    const currentDir = th.dataset.sortDir === "asc" ? "desc" : "asc";
-    th.dataset.sortDir = currentDir;
-
-    // 清除同表其它 th 的排序状态
-    const headers = table.querySelectorAll("th.sortable");
-    headers.forEach(h => {
-      if (h !== th) h.dataset.sortDir = "";
-    });
-
-    rows.sort((a, b) => {
-      const sa = a.dataset.symbol;
-      const sb = b.dataset.symbol;
-      const ea = document.getElementById(`${sa}_${periodKey}_change`);
-      const eb = document.getElementById(`${sb}_${periodKey}_change`);
-      const va = ea ? parseFloat(ea.textContent) : NaN;
-      const vb = eb ? parseFloat(eb.textContent) : NaN;
-
-      const aNaN = Number.isNaN(va);
-      const bNaN = Number.isNaN(vb);
-      if (aNaN && bNaN) return 0;
-      if (aNaN) return 1;
-      if (bNaN) return -1;
-      return currentDir === "asc" ? va - vb : vb - va;
-    });
-
-    rows.forEach(r => tbody.appendChild(r));
-  }
-
-  // ====== 事件绑定 ====== //
   function setupEvents() {
     document.getElementById("add-btn").addEventListener("click", addStock);
-    document
-      .getElementById("symbol-input")
-      .addEventListener("keydown", e => {
-        if (e.key === "Enter") addStock();
-      });
+    document.getElementById("symbol-input").addEventListener("keydown", e=>{
+      if (e.key === "Enter") addStock();
+    });
 
     const sectorSelect = document.getElementById("sector-select");
     const customWrap = document.getElementById("custom-sector-wrap");
-    sectorSelect.addEventListener("change", () => {
-      customWrap.style.display =
-        sectorSelect.value === "__custom__" ? "block" : "none";
+    sectorSelect.addEventListener("change", ()=>{
+      customWrap.style.display = sectorSelect.value==="__custom__" ? "block" : "none";
     });
 
-    // 事件代理：删除股票 / 点击迷你图 / 点击排序表头
-    document.getElementById("sectors").addEventListener("click", e => {
-      // 删除按钮
+    document.getElementById("filter-strong").addEventListener("change", applyFilters);
+
+    document.getElementById("sectors").addEventListener("click", e=>{
       const btn = e.target.closest(".remove-btn");
       if (btn) {
         const symbol = btn.dataset.symbol;
         const sector = btn.dataset.sector;
-        if (confirm(`确定从「${sector}」中删除 ${symbol} 吗？`)) {
+        if (confirm(`Remove ${symbol} from "${sector}"?`)) {
           removeStock(symbol, sector);
         }
         return;
       }
-
-      // 点击迷你曲线 -> 打开大图
-      const canvas = e.target.closest("canvas.spark-canvas");
-      if (canvas) {
-        const symbol = canvas.dataset.symbol;
-        const periodKey = canvas.dataset.period;
-        if (window.openKlineModal) {
-          window.openKlineModal(symbol, periodKey);
-        }
+      const sortBtn = e.target.closest(".sort-btn");
+      if (sortBtn) {
+        const sectorName = sortBtn.dataset.sector;
+        const dir = sortBtn.dataset.dir || "desc";
+        sortSectorByBuyScore(sectorName, dir);
         return;
       }
-
-      // 排序表头
-      const th = e.target.closest("th.sortable");
-      if (th) {
-        const periodKey = th.dataset.sortPeriod;
-        const table = th.closest("table");
-        if (table && periodKey) {
-          sortRowsByPeriod(table, periodKey, th);
-        }
+      const symEl = e.target.closest(".symbol-click");
+      if (symEl) {
+        const symbol = symEl.dataset.symbol;
+        const name = symEl.dataset.name || "";
+        openBigChart(symbol, name);
+        e.stopPropagation();
+        return;
       }
+    });
+
+    const modal = document.getElementById("chart-modal");
+    const closeBtn = document.getElementById("modal-close");
+    const downloadBtn = document.getElementById("download-png");
+    closeBtn.addEventListener("click", ()=>closeBigChart());
+    modal.addEventListener("click", ()=>closeBigChart());
+    downloadBtn.addEventListener("click", downloadBigChartPng);
+
+    document.addEventListener("keydown", e=>{
+      if (e.key === "Escape") closeBigChart();
     });
   }
 
-  // ====== 初始化 ====== //
-  (function init() {
+  (function init(){
     loadSectors();
     renderSectorSelect();
     renderSectors();
     setupEvents();
     setupExpandCollapseButtons();
-    setupKlineControls();
     refreshAll();
     setInterval(refreshAll, REFRESH_MS);
   })();
