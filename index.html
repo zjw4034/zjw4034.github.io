@@ -1,149 +1,1215 @@
-<!DOCTYPE HTML>
-<html>
-	<head>
-		<title>Multiverse by HTML5 UP</title>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-		<!--[if lte IE 8]><script src="assets/js/ie/html5shiv.js"></script><![endif]-->
-		<link rel="stylesheet" href="assets/css/main.css" />
-		<!--[if lte IE 9]><link rel="stylesheet" href="assets/css/ie9.css" /><![endif]-->
-		<!--[if lte IE 8]><link rel="stylesheet" href="assets/css/ie8.css" /><![endif]-->
-	</head>
-	<body>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>多周期股票趋势看板（1D / 1W / 1M / 6M / 1Y / 3Y）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Chart.js 用于渐变小曲线和大图 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-soft: #0b1120;
+      --border: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #3b82f6;
+      --up: #4ade80;
+      --down: #f97373;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1f2937 0, #020617 45%);
+      color: var(--text);
+    }
+    .app {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: flex-end;
+      margin-bottom: 10px;
+    }
+    .title {
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .status {
+      margin-left: auto;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: right;
+    }
 
-		<!-- Wrapper -->
-			<div id="wrapper">
+    .controls {
+      margin-bottom: 12px;
+      padding: 8px;
+      border-radius: 10px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .controls label {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .controls input,
+    .controls select,
+    .controls button {
+      font-family: inherit;
+      font-size: 0.8rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      background: #020617;
+      color: var(--text);
+      outline: none;
+    }
+    .controls input:focus,
+    .controls select:focus {
+      border-color: var(--accent);
+    }
+    .controls button {
+      cursor: pointer;
+      background: linear-gradient(to right, #2563eb, #4f46e5);
+      border: none;
+      color: white;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .controls button:hover {
+      filter: brightness(1.08);
+    }
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
 
-				<!-- Header -->
-					<header id="header">
-						<h1><a href="index.html"><strong>XXX工作室</strong></a></h1>
-						<nav>
-							<ul>
-								<li><a href="#footer" class="icon fa-info-circle">关于画家</a></li>
-							</ul>
-						</nav>
-					</header>
+    .sectors {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    details.sector {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(15,23,42,0.95);
+      overflow: hidden;
+    }
+    details[open].sector {
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    }
+    details > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to right, rgba(15,23,42,0.95), rgba(30,64,175,0.45));
+    }
+    details > summary::-webkit-details-marker { display: none; }
+    .sector-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sector-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .sector-meta {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+    .sector-toggle {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
 
-				<!-- Main -->
-					<div id="main">
-						<article class="thumb">
-							<a href="images/fulls/01.jpg" class="image"><img src="images/thumbs/01.jpg" alt="" /></a>
-							<h2>Magna feugiat lorem</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-						<article class="thumb">
-							<a href="images/fulls/02.jpg" class="image"><img src="images/thumbs/02.jpg" alt="" /></a>
-							<h2>Nisl adipiscing</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-						<article class="thumb">
-							<a href="images/fulls/03.jpg" class="image"><img src="images/thumbs/03.jpg" alt="" /></a>
-							<h2>Tempus aliquam veroeros</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-						<article class="thumb">
-							<a href="images/fulls/04.jpg" class="image"><img src="images/thumbs/04.jpg" alt="" /></a>
-							<h2>Aliquam ipsum sed dolore</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-						<article class="thumb">
-							<a href="images/fulls/05.jpg" class="image"><img src="images/thumbs/05.jpg" alt="" /></a>
-							<h2>Cursis aliquam nisl</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-						<article class="thumb">
-							<a href="images/fulls/06.jpg" class="image"><img src="images/thumbs/06.jpg" alt="" /></a>
-							<h2>Sed consequat phasellus</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-						<article class="thumb">
-							<a href="images/fulls/07.jpg" class="image"><img src="images/thumbs/07.jpg" alt="" /></a>
-							<h2>Mauris id tellus arcu</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-						<article class="thumb">
-							<a href="images/fulls/08.jpg" class="image"><img src="images/thumbs/08.jpg" alt="" /></a>
-							<h2>Nunc vehicula id nulla</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-						<article class="thumb">
-							<a href="images/fulls/09.jpg" class="image"><img src="images/thumbs/09.jpg" alt="" /></a>
-							<h2>Neque et faucibus viverra</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-						<article class="thumb">
-							<a href="images/fulls/10.jpg" class="image"><img src="images/thumbs/10.jpg" alt="" /></a>
-							<h2>Mattis ante fermentum</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-						<article class="thumb">
-							<a href="images/fulls/11.jpg" class="image"><img src="images/thumbs/11.jpg" alt="" /></a>
-							<h2>Sed ac elementum arcu</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-						<article class="thumb">
-							<a href="images/fulls/12.jpg" class="image"><img src="images/thumbs/12.jpg" alt="" /></a>
-							<h2>Vehicula id nulla dignissim</h2>
-							<p>Nunc blandit nisi ligula magna sodales lectus elementum non. Integer id venenatis velit.</p>
-						</article>
-					</div>
-                    <div class="copyrights">Collect from <a href="https://www.webmoban.net" >企业网站模板</a></div>
+    .sector-body {
+      padding: 8px 8px 10px;
+      background: #020617;
+    }
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+      font-size: 0.78rem;
+    }
+    th, td {
+      padding: 6px 6px;
+      border-bottom: 1px solid #111827;
+      text-align: center;
+      white-space: nowrap;
+    }
+    th {
+      background: #020617;
+      color: var(--muted);
+      font-weight: 500;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    th.stock-col {
+      min-width: 90px; /* 股票列更窄 */
+    }
+    th.sortable {
+      cursor: pointer;
+      position: relative;
+    }
+    th.sortable::after {
+      content: "↕";
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+    th.sortable[data-sort-dir="asc"]::after {
+      content: "↑";
+      color: #60a5fa;
+    }
+    th.sortable[data-sort-dir="desc"]::after {
+      content: "↓";
+      color: #60a5fa;
+    }
 
-				<!-- Footer -->
-					<footer id="footer" class="panel">
-						<div class="inner split">
-							<div>
-								<section>
-									<h2>Magna feugiat sed adipiscing</h2>
-									<p>Nulla consequat, ex ut suscipit rutrum, mi dolor tincidunt erat, et scelerisque turpis ipsum eget quis orci mattis aliquet. Maecenas fringilla et ante at lorem et ipsum. Dolor nulla eu bibendum sapien. Donec non pharetra dui. Nulla consequat, ex ut suscipit rutrum, mi dolor tincidunt erat, et scelerisque turpis ipsum.</p>
-								</section>
-								<section>
-									<h2>Follow me on ...</h2>
-									<ul class="icons">
-										<li><a href="#" class="icon fa-twitter"><span class="label">Twitter</span></a></li>
-										<li><a href="#" class="icon fa-facebook"><span class="label">Facebook</span></a></li>
-										<li><a href="#" class="icon fa-instagram"><span class="label">Instagram</span></a></li>
-										<li><a href="#" class="icon fa-github"><span class="label">GitHub</span></a></li>
-										<li><a href="#" class="icon fa-dribbble"><span class="label">Dribbble</span></a></li>
-										<li><a href="#" class="icon fa-linkedin"><span class="label">LinkedIn</span></a></li>
-									</ul>
-								</section>
-								<p class="copyright">
-									&copy; Unttled. More Templates <a href="https://www.webmoban.net" target="_blank" title="网站模板">网站模板</a> - Collect from <a href="https://www.webmoban.net" title="网页模板" target="_blank">网页模板</a>.
-								</p>
-							</div>
-							<div>
-								<section>
-									<h2>Get in touch</h2>
-									<form method="post" action="#">
-										<div class="field half first">
-											<input type="text" name="name" id="name" placeholder="Name" />
-										</div>
-										<div class="field half">
-											<input type="text" name="email" id="email" placeholder="Email" />
-										</div>
-										<div class="field">
-											<textarea name="message" id="message" rows="4" placeholder="Message"></textarea>
-										</div>
-										<ul class="actions">
-											<li><input type="submit" value="Send" class="special" /></li>
-											<li><input type="reset" value="Reset" /></li>
-										</ul>
-									</form>
-								</section>
-							</div>
-						</div>
-					</footer>
+    td.symbol-cell {
+      text-align: left;
+    }
+    .symbol {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #bfdbfe;
+    }
+    .name {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+    .remove-btn {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.7rem;
+      padding: 0 4px;
+      border-radius: 999px;
+      margin-left: 4px;
+    }
+    .remove-btn:hover {
+      background: rgba(148,163,184,0.1);
+      color: #fecaca;
+    }
 
-			</div>
+    .cell-chart {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .cell-chart canvas {
+      width: 120px !important;
+      height: 40px !important;
+    }
+    .spark-canvas { cursor: pointer; }
+    .change-text {
+      font-size: 0.7rem;
+    }
+    .change-up {
+      color: var(--up);
+      font-weight: 500;
+    }
+    .change-down {
+      color: var(--down);
+      font-weight: 500;
+    }
+    .change-flat {
+      color: var(--muted);
+    }
 
-		<!-- Scripts -->
-			<script src="assets/js/jquery.min.js"></script>
-			<script src="assets/js/jquery.poptrox.min.js"></script>
-			<script src="assets/js/skel.min.js"></script>
-			<script src="assets/js/util.js"></script>
-			<!--[if lte IE 8]><script src="assets/js/ie/respond.min.js"></script><![endif]-->
-			<script src="assets/js/main.js"></script>
+    /* 位置列样式 */
+    .pos-cell {
+      min-width: 170px;
+    }
+    .pos-container {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .pos-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .pos-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      width: 2.2em;
+    }
+    .pos-bar {
+      flex: 1;
+      height: 4px;
+      border-radius: 999px;
+      background: #0f172a;
+      overflow: hidden;
+    }
+    .pos-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(to right, #f97373, #4ade80);
+    }
+    .pos-val {
+      font-size: 0.65rem;
+      color: var(--muted);
+      width: 3em;
+      text-align: right;
+    }
 
-	</body>
+    /* 大 K 线弹窗 */
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .modal.show { display: flex; }
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15,23,42,0.75);
+    }
+    .modal-content {
+      position: relative;
+      background: #020617;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 12px;
+      width: 90%;
+      max-width: 900px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+      z-index: 51;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+    .modal-close {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+    .modal-close:hover { color: #fca5a5; }
+    .modal-periods {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      font-size: 0.75rem;
+    }
+    .modal-periods button {
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .modal-periods button.active {
+      border-color: var(--accent);
+      color: #fff;
+      background: rgba(37,99,235,0.5);
+    }
+    .modal-body {
+      flex: 1;
+      min-height: 260px;
+    }
+    .modal-body canvas {
+      width: 100% !important;
+      height: 260px !important;
+    }
+
+    @media (max-width: 768px) {
+      .header { flex-direction: column; align-items: flex-start; }
+      .status { margin-left: 0; text-align: left; }
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .controls > div {
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
+      }
+      .controls input,
+      .controls select {
+        flex: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <div class="title">多周期股票趋势看板</div>
+      <div class="subtitle">
+        每行一只股票 · 1D / 1W / 1M / 6M / 1Y / 3Y 曲线 · 区间位置 · 行业折叠 · 本地缓存 · 纯 HTML
+      </div>
+    </div>
+    <div class="status">
+      <div id="status-text">初始化中...</div>
+      <div style="font-size:0.7rem;">刷新间隔：<span id="refresh-sec">30</span>s · 缓存：5min</div>
+    </div>
+  </div>
+
+  <!-- 控制面板：添加股票 / 行业选择 -->
+  <div class="controls">
+    <div>
+      <label for="symbol-input">股票代码</label>
+      <input id="symbol-input" placeholder="例如 MSFT / NVDA / 0700.HK" />
+    </div>
+    <div>
+      <label for="sector-select">所属行业</label>
+      <select id="sector-select"></select>
+    </div>
+    <div id="custom-sector-wrap" style="display:none;">
+      <label for="custom-sector-input">新行业名</label>
+      <input id="custom-sector-input" placeholder="例如: Crypto / Energy" />
+    </div>
+    <div>
+      <button id="add-btn">➕ 添加股票</button>
+    </div>
+    <div style="margin-left:auto;">
+      <span class="badge">📦 本地缓存 &nbsp;|&nbsp; 🔁 30s 自动更新</span>
+    </div>
+  </div>
+
+  <!-- 展开/折叠全部行业 -->
+  <div class="controls" style="margin-top:6px;">
+    <button id="expand-all">⬆ 展开全部行业</button>
+    <button id="collapse-all">⬇ 折叠全部行业</button>
+  </div>
+
+  <!-- 行业容器 -->
+  <div id="sectors" class="sectors"></div>
+</div>
+
+<!-- 大 K 线弹窗 -->
+<div id="kline-modal" class="modal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <div class="modal-header">
+      <div id="kline-title">K 线图</div>
+      <button class="modal-close" id="kline-close">✕</button>
+    </div>
+    <div class="modal-periods" id="kline-periods"></div>
+    <div class="modal-body">
+      <canvas id="kline-canvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ========== 配置 ========== //
+  const REFRESH_MS = 30000;                        // 自动刷新 30 秒
+  const CACHE_TTL_MS = 5 * 60_000;                 // 缓存 5 分钟
+  const STORAGE_SECTORS = "multi_period_sectors_v3";
+  const STORAGE_CACHE   = "multi_period_cache_v3";
+  document.getElementById("refresh-sec").textContent = REFRESH_MS / 1000;
+
+  // 多周期配置（1D / 1W / 1M / 6M / 1Y / 3Y）
+  const PERIODS = [
+    { key: "1D", label: "1D" },
+    { key: "1W", label: "1W" },
+    { key: "1M", label: "1M" },
+    { key: "6M", label: "6M" },
+    { key: "1Y", label: "1Y" },
+    { key: "3Y", label: "3Y" },
+  ];
+
+  // 每个周期对应的多个 range/interval 组合（fallback）
+  const PERIOD_FETCH_CONFIG = {
+    "1D": [
+      { range: "5d", interval: "1h" },
+      { range: "5d", interval: "30m" },
+      { range: "5d", interval: "15m" },
+    ],
+    "1W": [
+      { range: "1mo", interval: "1d" },
+      { range: "1mo", interval: "1h" },
+    ],
+    "1M": [
+      { range: "3mo", interval: "1d" },
+      { range: "3mo", interval: "1h" },
+    ],
+    "6M": [
+      { range: "6mo", interval: "1d" },
+      { range: "6mo", interval: "1wk" },
+    ],
+    "1Y": [
+      { range: "1y", interval: "1wk" },
+      { range: "1y", interval: "1d" },
+    ],
+    "3Y": [
+      { range: "3y", interval: "1mo" },
+      { range: "5y", interval: "1mo" },
+    ],
+  };
+
+  // 区间位置列显示的周期（1D 太短，就不放这列了）
+  const POSITION_PERIODS = ["1W", "1M", "6M", "1Y", "3Y"];
+
+  // 默认行业 & 股票
+  const defaultSectors = [
+    {
+      name: "Technology",
+      stocks: [
+        { symbol: "MSFT", name: "Microsoft" },
+        { symbol: "ORCL", name: "Oracle" },
+        { symbol: "PLTR", name: "Palantir" },
+      ],
+    },
+    {
+      name: "Semiconductor",
+      stocks: [
+        { symbol: "NVDA", name: "NVIDIA" },
+        { symbol: "AVGO", name: "Broadcom" },
+        { symbol: "AMD",  name: "AMD" },
+        { symbol: "MU",   name: "Micron" },
+        { symbol: "QCOM", name: "Qualcomm" },
+        { symbol: "INTC", name: "Intel" },
+        { symbol: "ASML", name: "ASML" },
+        { symbol: "TSM",  name: "TSMC" },
+        { symbol: "SMCI", name: "Super Micro Computer" },
+      ],
+    },
+    {
+      name: "Consumer",
+      stocks: [
+        { symbol: "AMZN", name: "Amazon" },
+        { symbol: "TSLA", name: "Tesla" },
+        { symbol: "KO",   name: "Coca-Cola" },
+        { symbol: "PEP",  name: "PepsiCo" },
+      ],
+    },
+    {
+      name: "Internet",
+      stocks: [
+        { symbol: "GOOGL", name: "Alphabet (Google)" },
+        { symbol: "META",  name: "Meta" },
+        { symbol: "NFLX",  name: "Netflix" },
+      ],
+    },
+    {
+      name: "Europe",
+      stocks: [
+        { symbol: "RHM.DE",  name: "Rheinmetall" },
+        { symbol: "SIE.DE",  name: "Siemens" },
+        { symbol: "ENR.DE",  name: "Siemens Energy" },
+        { symbol: "SHL.DE",  name: "Siemens Healthineers" },
+        { symbol: "MBG.DE",  name: "Mercedes-Benz" },
+        { symbol: "BMW.DE",  name: "BMW" },
+        { symbol: "VOW3.DE", name: "Volkswagen" },
+        { symbol: "CON.DE",  name: "Continental" },
+        { symbol: "DAST.PA", name: "Dassault Systèmes" },
+        { symbol: "SAF.PA",  name: "Safran" },
+        { symbol: "AIR.PA",  name: "Airbus" },
+        { symbol: "ARM",     name: "ARM Holdings" },
+        { symbol: "KTR.DE",  name: "Kontron" },
+      ],
+    },
+    {
+      name: "China",
+      stocks: [
+        { symbol: "1211.HK",   name: "BYD" },
+        { symbol: "1810.HK",   name: "Xiaomi" },
+        { symbol: "BABA",      name: "Alibaba" },
+        { symbol: "BIDU",      name: "Baidu" },
+        { symbol: "0700.HK",   name: "Tencent" },
+        { symbol: "300750.SZ", name: "CATL" },
+        { symbol: "9992.HK",   name: "Pop Mart" },
+      ],
+    },
+    {
+      name: "Other",
+      stocks: [
+        { symbol: "IREN", name: "Iris Energy" },
+        { symbol: "BE",   name: "Bloom Energy" },
+        { symbol: "CCJ",  name: "Cameco" },
+        { symbol: "JBL",  name: "Jabil" },
+        { symbol: "SNPS", name: "Synopsys" },
+        { symbol: "CLS",  name: "Celestica" },
+      ],
+    },
+  ];
+
+  let sectors = [];
+  const charts = {}; // key: symbol_periodKey -> Chart 实例
+
+  // 大图弹窗状态
+  let modalChart = null;
+  let modalSymbol = null;
+  let modalPeriodKey = "1D";
+
+  // Yahoo Finance + CORS 代理
+  const PROXY = "https://corsproxy.io/?url=";
+
+  async function fetchYahoo(symbol, range, interval) {
+    const url =
+      `https://query1.finance.yahoo.com/v8/finance/chart/` +
+      `${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
+    const res = await fetch(PROXY + encodeURIComponent(url));
+    return res.json();
+  }
+
+  // ====== 本地缓存（时间序列） ====== //
+  function loadCache() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_CACHE) || "{}");
+    } catch { return {}; }
+  }
+  function saveCache(obj) {
+    try {
+      localStorage.setItem(STORAGE_CACHE, JSON.stringify(obj));
+    } catch {}
+  }
+
+  async function getSeries(symbol, periodKey) {
+    const cache = loadCache();
+    const cacheKey = `${symbol}_${periodKey}`;
+    const now = Date.now();
+
+    if (cache[cacheKey] && now - cache[cacheKey].ts < CACHE_TTL_MS) {
+      return cache[cacheKey].series;
+    }
+
+    const configs = PERIOD_FETCH_CONFIG[periodKey] || [];
+    for (const cfg of configs) {
+      try {
+        const json = await fetchYahoo(symbol, cfg.range, cfg.interval);
+        const closes =
+          json.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
+        const filtered = closes.filter(v => v != null);
+        if (filtered.length >= 2) {
+          cache[cacheKey] = { ts: now, series: filtered };
+          saveCache(cache);
+          return filtered;
+        }
+      } catch (e) {
+        console.error("Fetch error", symbol, periodKey, cfg, e);
+      }
+    }
+    return null;
+  }
+
+  // 百分比变化：从序列首到尾
+  function percentChange(series) {
+    if (!series || series.length < 2) return null;
+    const a = series[0];
+    const b = series[series.length - 1];
+    if (a == null || b == null) return null;
+    return Number(((b - a) / a * 100).toFixed(2));
+  }
+
+  // 价格区间位置：last 在 [min, max] 内的百分比
+  function positionPercent(series) {
+    if (!series || series.length < 2) return null;
+    const min = Math.min(...series);
+    const max = Math.max(...series);
+    const last = series[series.length - 1];
+    if (!isFinite(min) || !isFinite(max) || !isFinite(last)) return null;
+    if (max <= min) return 50;
+    return ((last - min) / (max - min)) * 100;
+  }
+
+  // ====== 行业数据持久化 ====== //
+  function loadSectors() {
+    try {
+      const raw = localStorage.getItem(STORAGE_SECTORS);
+      if (raw) {
+        sectors = JSON.parse(raw);
+      } else {
+        sectors = defaultSectors;
+      }
+    } catch {
+      sectors = defaultSectors;
+    }
+  }
+  function saveSectors() {
+    try {
+      localStorage.setItem(STORAGE_SECTORS, JSON.stringify(sectors));
+    } catch {}
+  }
+
+  // ====== 渲染行业选择下拉 ====== //
+  function renderSectorSelect() {
+    const select = document.getElementById("sector-select");
+    select.innerHTML = "";
+    sectors.forEach(sec => {
+      const opt = document.createElement("option");
+      opt.value = sec.name;
+      opt.textContent = sec.name;
+      select.appendChild(opt);
+    });
+    const optCustom = document.createElement("option");
+    optCustom.value = "__custom__";
+    optCustom.textContent = "➕ 新行业...";
+    select.appendChild(optCustom);
+  }
+
+  // ====== 渲染行业 + 表格 ====== //
+  function renderSectors() {
+    const container = document.getElementById("sectors");
+    container.innerHTML = "";
+
+    sectors.forEach(sec => {
+      const details = document.createElement("details");
+      details.className = "sector";
+      details.open = true; // 默认展开
+
+      const summary = document.createElement("summary");
+      const left = document.createElement("div");
+      left.className = "sector-title";
+      const nameEl = document.createElement("div");
+      nameEl.className = "sector-name";
+      nameEl.textContent = sec.name;
+      const metaEl = document.createElement("div");
+      metaEl.className = "sector-meta";
+      metaEl.textContent = `${sec.stocks.length} stocks`;
+      left.appendChild(nameEl);
+      left.appendChild(metaEl);
+
+      const right = document.createElement("div");
+      right.className = "sector-toggle";
+      right.textContent = "点击折叠 / 展开";
+
+      summary.appendChild(left);
+      summary.appendChild(right);
+      details.appendChild(summary);
+
+      const body = document.createElement("div");
+      body.className = "sector-body";
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "table-wrapper";
+
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const trHead = document.createElement("tr");
+      trHead.innerHTML = `
+        <th class="stock-col">股票</th>
+        ${PERIODS.map(p => `<th class="sortable" data-sort-period="${p.key}">${p.label} 曲线</th>`).join("")}
+        <th>区间位置</th>
+      `;
+      thead.appendChild(trHead);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+
+      sec.stocks.forEach(stock => {
+        const tr = document.createElement("tr");
+        tr.dataset.symbol = stock.symbol;
+        tr.dataset.sector = sec.name;
+
+        const tdSymbol = document.createElement("td");
+        tdSymbol.className = "symbol-cell";
+        tdSymbol.innerHTML = `
+          <div class="symbol">${stock.symbol}</div>
+          <div class="name">${stock.name || ""}</div>
+        `;
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "remove-btn";
+        removeBtn.textContent = "删";
+        removeBtn.title = `从 ${sec.name} 移除`;
+        removeBtn.dataset.symbol = stock.symbol;
+        removeBtn.dataset.sector = sec.name;
+        tdSymbol.appendChild(removeBtn);
+        tr.appendChild(tdSymbol);
+
+        PERIODS.forEach(p => {
+          const td = document.createElement("td");
+          const cell = document.createElement("div");
+          cell.className = "cell-chart";
+
+          const canvas = document.createElement("canvas");
+          canvas.id = `${stock.symbol}_${p.key}`;
+          canvas.width = 120;
+          canvas.height = 40;
+          canvas.classList.add("spark-canvas");
+          canvas.dataset.symbol = stock.symbol;
+          canvas.dataset.period = p.key;
+
+          const changeDiv = document.createElement("div");
+          changeDiv.id = `${stock.symbol}_${p.key}_change`;
+          changeDiv.className = "change-text change-flat";
+          changeDiv.textContent = "--";
+
+          cell.appendChild(canvas);
+          cell.appendChild(changeDiv);
+          td.appendChild(cell);
+          tr.appendChild(td);
+        });
+
+        // 位置列
+        const tdPos = document.createElement("td");
+        tdPos.className = "pos-cell";
+        const posContainer = document.createElement("div");
+        posContainer.className = "pos-container";
+        posContainer.id = `${stock.symbol}_pos`;
+        tdPos.appendChild(posContainer);
+        tr.appendChild(tdPos);
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      wrapper.appendChild(table);
+      body.appendChild(wrapper);
+      details.appendChild(body);
+      container.appendChild(details);
+    });
+  }
+
+  // ====== 绘制小曲线 ====== //
+  function drawSpark(symbol, periodKey, series) {
+    const canvas = document.getElementById(`${symbol}_${periodKey}`);
+    if (!canvas || !series || series.length < 2) return;
+
+    const ctx = canvas.getContext("2d");
+    const trimmed = series.slice(-40); // 最多 40 个点
+    if (trimmed.length < 2) return;
+    const up = trimmed[trimmed.length - 1] >= trimmed[0];
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    if (up) {
+      gradient.addColorStop(0, "rgba(74,222,128,0.8)");
+      gradient.addColorStop(1, "rgba(22,163,74,0.05)");
+    } else {
+      gradient.addColorStop(0, "rgba(248,113,113,0.8)");
+      gradient.addColorStop(1, "rgba(127,29,29,0.05)");
+    }
+
+    const chartKey = `${symbol}_${periodKey}`;
+    if (charts[chartKey]) {
+      charts[chartKey].destroy();
+    }
+
+    charts[chartKey] = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: trimmed.map((_, i) => i),
+        datasets: [
+          {
+            data: trimmed,
+            borderColor: up ? "#4ade80" : "#f97373",
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.35,
+            borderWidth: 1.4,
+            pointRadius: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: false,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false },
+        },
+        scales: {
+          x: { display: false },
+          y: { display: false },
+        },
+      },
+    });
+  }
+
+  // ====== 渲染位置列 ====== //
+  function renderPositionCell(symbol, seriesPerPeriod) {
+    const container = document.getElementById(`${symbol}_pos`);
+    if (!container) return;
+    let html = "";
+    POSITION_PERIODS.forEach(key => {
+      const s = seriesPerPeriod[key];
+      let pos = positionPercent(s);
+      let txt = "--";
+      let width = 0;
+      if (pos != null) {
+        const clamped = Math.max(0, Math.min(100, pos));
+        width = Math.max(4, Math.round(clamped));
+        txt = Math.round(clamped) + "%";
+      }
+      html += `
+        <div class="pos-row">
+          <span class="pos-label">${key}</span>
+          <div class="pos-bar">
+            <div class="pos-fill" style="width:${width}%;"></div>
+          </div>
+          <span class="pos-val">${txt}</span>
+        </div>
+      `;
+    });
+    container.innerHTML = html;
+  }
+
+  // ====== 更新所有股票的数据 ====== //
+  async function refreshAll() {
+    const statusEl = document.getElementById("status-text");
+    statusEl.textContent = "⏳ 正在更新… " + new Date().toLocaleTimeString();
+
+    const allRows = document.querySelectorAll("tr[data-symbol]");
+    for (const row of allRows) {
+      const symbol = row.dataset.symbol;
+      const seriesPerPeriod = {};
+
+      for (const p of PERIODS) {
+        const series = await getSeries(symbol, p.key);
+        seriesPerPeriod[p.key] = series;
+
+        const changeEl = document.getElementById(`${symbol}_${p.key}_change`);
+
+        if (!series || series.length < 2) {
+          if (changeEl) {
+            changeEl.textContent = "--";
+            changeEl.className = "change-text change-flat";
+          }
+          continue;
+        }
+
+        const pct = percentChange(series);
+        if (changeEl) {
+          if (pct == null) {
+            changeEl.textContent = "--";
+            changeEl.className = "change-text change-flat";
+          } else {
+            const sign = pct > 0 ? "+" : "";
+            changeEl.textContent = `${sign}${pct}%`;
+            changeEl.className =
+              "change-text " +
+              (pct > 0 ? "change-up" : pct < 0 ? "change-down" : "change-flat");
+          }
+        }
+
+        drawSpark(symbol, p.key, series);
+      }
+
+      renderPositionCell(symbol, seriesPerPeriod);
+    }
+
+    statusEl.textContent = "✔ 更新完成 " + new Date().toLocaleTimeString();
+  }
+
+  // ====== 添加 / 删除 股票 ====== //
+  function addStock() {
+    const symbolInput = document.getElementById("symbol-input");
+    const sectorSelect = document.getElementById("sector-select");
+    const customSectorInput = document.getElementById("custom-sector-input");
+
+    let symbol = symbolInput.value.trim().toUpperCase();
+    if (!symbol) return;
+    let sectorName = sectorSelect.value;
+
+    if (sectorName === "__custom__") {
+      sectorName = customSectorInput.value.trim();
+    }
+    if (!sectorName) {
+      alert("请填写行业名称");
+      return;
+    }
+
+    let sec = sectors.find(s => s.name === sectorName);
+    if (!sec) {
+      sec = { name: sectorName, stocks: [] };
+      sectors.push(sec);
+    }
+
+    if (sec.stocks.some(s => s.symbol === symbol)) {
+      alert("该股票在该行业中已存在");
+      return;
+    }
+
+    sec.stocks.push({ symbol, name: "" });
+    saveSectors();
+    renderSectorSelect();
+    renderSectors();
+    refreshAll();
+
+    symbolInput.value = "";
+    if (sectorSelect.value === "__custom__") {
+      customSectorInput.value = "";
+    }
+  }
+
+  function removeStock(symbol, sectorName) {
+    const sec = sectors.find(s => s.name === sectorName);
+    if (!sec) return;
+    sec.stocks = sec.stocks.filter(s => s.symbol !== symbol);
+    saveSectors();
+    renderSectorSelect();
+    renderSectors();
+    refreshAll();
+  }
+
+  // ====== 展开 / 折叠 所有行业 ====== //
+  function expandAllSectors() {
+    const list = document.querySelectorAll("details.sector");
+    list.forEach(sec => (sec.open = true));
+  }
+
+  function collapseAllSectors() {
+    const list = document.querySelectorAll("details.sector");
+    list.forEach(sec => (sec.open = false));
+  }
+
+  function setupExpandCollapseButtons() {
+    document
+      .getElementById("expand-all")
+      .addEventListener("click", expandAllSectors);
+    document
+      .getElementById("collapse-all")
+      .addEventListener("click", collapseAllSectors);
+  }
+
+  // ====== 大 K 线弹窗 ====== //
+  function setupKlineControls() {
+    const modal = document.getElementById("kline-modal");
+    const closeBtn = document.getElementById("kline-close");
+    const backdrop = modal.querySelector(".modal-backdrop");
+    const periodsContainer = document.getElementById("kline-periods");
+
+    // 构建周期按钮
+    periodsContainer.innerHTML = "";
+    PERIODS.forEach(p => {
+      const btn = document.createElement("button");
+      btn.textContent = p.label;
+      btn.dataset.period = p.key;
+      periodsContainer.appendChild(btn);
+    });
+
+    function setActivePeriodButton() {
+      const buttons = periodsContainer.querySelectorAll("button");
+      buttons.forEach(btn => {
+        btn.classList.toggle(
+          "active",
+          btn.dataset.period === modalPeriodKey
+        );
+      });
+    }
+
+    async function renderKline() {
+      const canvas = document.getElementById("kline-canvas");
+      const ctx = canvas.getContext("2d");
+      const series = await getSeries(modalSymbol, modalPeriodKey);
+      if (!series || series.length < 2) return;
+
+      const data = series;
+      const labels = data.map((_, i) => i + 1);
+
+      if (modalChart) modalChart.destroy();
+
+      modalChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: `${modalSymbol} ${modalPeriodKey}`,
+              data,
+              borderColor: "#60a5fa",
+              backgroundColor: "rgba(37,99,235,0.25)",
+              fill: true,
+              tension: 0.25,
+              borderWidth: 1.5,
+              pointRadius: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: true },
+          },
+          scales: {
+            x: {
+              display: false,
+            },
+            y: {
+              display: true,
+              ticks: {
+                color: "#9ca3af",
+              },
+              grid: {
+                color: "rgba(55,65,81,0.4)",
+              },
+            },
+          },
+        },
+      });
+    }
+
+    async function openKline(symbol, periodKey) {
+      modalSymbol = symbol;
+      modalPeriodKey = periodKey || "1D";
+      document.getElementById("kline-title").textContent =
+        `${modalSymbol} - 多周期线图`;
+      modal.classList.add("show");
+      setActivePeriodButton();
+      await renderKline();
+    }
+
+    function closeKline() {
+      modal.classList.remove("show");
+      if (modalChart) {
+        modalChart.destroy();
+        modalChart = null;
+      }
+    }
+
+    // 暴露到全局用于点击 spark 打开
+    window.openKlineModal = openKline;
+
+    closeBtn.addEventListener("click", closeKline);
+    backdrop.addEventListener("click", closeKline);
+
+    periodsContainer.addEventListener("click", e => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const period = btn.dataset.period;
+      modalPeriodKey = period;
+      setActivePeriodButton();
+      renderKline();
+    });
+  }
+
+  // ====== 排序 ====== //
+  function sortRowsByPeriod(table, periodKey, th) {
+    const tbody = table.querySelector("tbody");
+    const rows = Array.from(tbody.querySelectorAll("tr[data-symbol]"));
+
+    const currentDir = th.dataset.sortDir === "asc" ? "desc" : "asc";
+    th.dataset.sortDir = currentDir;
+
+    // 清除同表其它 th 的排序状态
+    const headers = table.querySelectorAll("th.sortable");
+    headers.forEach(h => {
+      if (h !== th) h.dataset.sortDir = "";
+    });
+
+    rows.sort((a, b) => {
+      const sa = a.dataset.symbol;
+      const sb = b.dataset.symbol;
+      const ea = document.getElementById(`${sa}_${periodKey}_change`);
+      const eb = document.getElementById(`${sb}_${periodKey}_change`);
+      const va = ea ? parseFloat(ea.textContent) : NaN;
+      const vb = eb ? parseFloat(eb.textContent) : NaN;
+
+      const aNaN = Number.isNaN(va);
+      const bNaN = Number.isNaN(vb);
+      if (aNaN && bNaN) return 0;
+      if (aNaN) return 1;
+      if (bNaN) return -1;
+      return currentDir === "asc" ? va - vb : vb - va;
+    });
+
+    rows.forEach(r => tbody.appendChild(r));
+  }
+
+  // ====== 事件绑定 ====== //
+  function setupEvents() {
+    document.getElementById("add-btn").addEventListener("click", addStock);
+    document
+      .getElementById("symbol-input")
+      .addEventListener("keydown", e => {
+        if (e.key === "Enter") addStock();
+      });
+
+    const sectorSelect = document.getElementById("sector-select");
+    const customWrap = document.getElementById("custom-sector-wrap");
+    sectorSelect.addEventListener("change", () => {
+      customWrap.style.display =
+        sectorSelect.value === "__custom__" ? "block" : "none";
+    });
+
+    // 事件代理：删除股票 / 点击迷你图 / 点击排序表头
+    document.getElementById("sectors").addEventListener("click", e => {
+      // 删除按钮
+      const btn = e.target.closest(".remove-btn");
+      if (btn) {
+        const symbol = btn.dataset.symbol;
+        const sector = btn.dataset.sector;
+        if (confirm(`确定从「${sector}」中删除 ${symbol} 吗？`)) {
+          removeStock(symbol, sector);
+        }
+        return;
+      }
+
+      // 点击迷你曲线 -> 打开大图
+      const canvas = e.target.closest("canvas.spark-canvas");
+      if (canvas) {
+        const symbol = canvas.dataset.symbol;
+        const periodKey = canvas.dataset.period;
+        if (window.openKlineModal) {
+          window.openKlineModal(symbol, periodKey);
+        }
+        return;
+      }
+
+      // 排序表头
+      const th = e.target.closest("th.sortable");
+      if (th) {
+        const periodKey = th.dataset.sortPeriod;
+        const table = th.closest("table");
+        if (table && periodKey) {
+          sortRowsByPeriod(table, periodKey, th);
+        }
+      }
+    });
+  }
+
+  // ====== 初始化 ====== //
+  (function init() {
+    loadSectors();
+    renderSectorSelect();
+    renderSectors();
+    setupEvents();
+    setupExpandCollapseButtons();
+    setupKlineControls();
+    refreshAll();
+    setInterval(refreshAll, REFRESH_MS);
+  })();
+</script>
+</body>
 </html>
