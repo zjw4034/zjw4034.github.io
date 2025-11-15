@@ -449,12 +449,12 @@
 
   // 多周期配置（1D / 1W / 1M / 6M / 1Y / 3Y）
   const PERIODS = [
-    { key: "1D", label: "1D" },
-    { key: "1W", label: "1W" },
-    { key: "1M", label: "1M" },
-    { key: "6M", label: "6M" },
-    { key: "1Y", label: "1Y" },
-    { key: "3Y", label: "3Y" },
+  { key: "3Y", label: "3Y", range: "3y",   interval: "1mo" }, 
+  { key: "1Y", label: "1Y", range: "1y",   interval: "1wk" }, 
+  { key: "6M", label: "6M", range: "6mo",  interval: "1d"  }, 
+  { key: "1M", label: "1M", range: "3mo",  interval: "1d"  },
+  { key: "1W", label: "1W", range: "1mo",  interval: "1d"  },
+  { key: "1D", label: "1D", range: "5d",   interval: "1h"  },
   ];
 
   // 每个周期对应的多个 range/interval 组合（fallback）
@@ -487,7 +487,7 @@
   };
 
   // 区间位置列显示的周期（1D 太短，就不放这列了）
-  const POSITION_PERIODS = ["1W", "1M", "6M", "1Y", "3Y"];
+  const POSITION_PERIODS = ["3Y", "1Y", "6M", "1M", "1W"];
 
   // 默认行业 & 股票
   const defaultSectors = [
