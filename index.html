@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Multi-Period Stock Dashboard (Trend + Volume)</title>
+  <title>Multi-Period Stock Dashboard v2 (Trend + Volume)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- Mini charts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -448,9 +448,9 @@
 <div class="app">
   <div class="header">
     <div>
-      <div class="title">Multi-Period Stock Dashboard</div>
+      <div classtitle>Multi-Period Stock Dashboard v2</div>
       <div class="subtitle">
-        Sectors · 3Y / 1Y / 6M / 1M / 1W / 1D mini charts · BuyScore · filter & sorting · big trend chart (area + MA20/60 + volume)
+        Sectors · 1Y / 6M / 3M / 1M / 1W / 1D mini charts · BuyScore v2 (Position + Trend + Accel + Vol + MACD) · filter & sorting · big trend chart (area + MA20/60 + volume)
       </div>
     </div>
     <div class="status">
@@ -523,19 +523,22 @@
 <script>
   const REFRESH_MS = 30000;
   const CACHE_TTL_MS = 5 * 60_000;
-  const STORAGE_SECTORS = "multi_period_sectors_trend_v1";
-  const STORAGE_CACHE   = "multi_period_cache_trend_v1";
+  const STORAGE_SECTORS = "multi_period_sectors_trend_v2";
+  const STORAGE_CACHE   = "multi_period_cache_trend_v2";
   document.getElementById("refresh-sec").textContent = REFRESH_MS / 1000;
 
+  // ==== 新的评分周期：1Y / 6M / 3M / 1M / 1W / 1D ====
   const PERIODS = [
-    { key: "3Y", label: "3Y", range: "3y",   interval: "1mo" },
     { key: "1Y", label: "1Y", range: "1y",   interval: "1wk" },
     { key: "6M", label: "6M", range: "6mo",  interval: "1d"  },
-    { key: "1M", label: "1M", range: "3mo",  interval: "1d"  },
+    { key: "3M", label: "3M", range: "3mo",  interval: "1d"  },
+    { key: "1M", label: "1M", range: "1mo",  interval: "1d"  },
     { key: "1W", label: "1W", range: "1mo",  interval: "1d"  },
     { key: "1D", label: "1D", range: "5d",   interval: "1h"  },
   ];
-  const POSITION_PERIODS = ["3Y","1Y","6M","1M","1W"];
+
+  // Position 只展示中长期+部分短期
+  const POSITION_PERIODS = ["1Y","6M","3M","1M","1W"];
 
   const defaultSectors = [
     {
@@ -732,50 +735,56 @@
     return val;
   }
 
+  // ===== 评分函数们 =====
+
+  // PositionScore：看 1Y / 6M / 3M 的相对高低位（越便宜分越高）
   function computePositionScore(seriesPerPeriod) {
-    const p3Y = positionPercent(seriesPerPeriod["3Y"]);
     const p1Y = positionPercent(seriesPerPeriod["1Y"]);
     const p6M = positionPercent(seriesPerPeriod["6M"]);
-    const _p3 = Number.isFinite(p3Y) ? p3Y : 50;
+    const p3M = positionPercent(seriesPerPeriod["3M"]);
     const _p1 = Number.isFinite(p1Y) ? p1Y : 50;
     const _p6 = Number.isFinite(p6M) ? p6M : 50;
-    const posWeighted = 0.40*_p3 + 0.35*_p1 + 0.25*_p6;
+    const _p3 = Number.isFinite(p3M) ? p3M : 50;
+    const posWeighted = 0.40*_p1 + 0.35*_p6 + 0.25*_p3;
     let posScore = (1 - posWeighted/100)*100;
     if (!Number.isFinite(posScore)) posScore = 50;
     return Math.max(0, Math.min(100, posScore));
   }
 
+  // TrendScore：1Y / 6M / 3M / 1M / 1W / 1D 加权涨幅
   function computeTrendScore(pctMap) {
-    const d3Y = pctMap["3Y"] ?? 0;
     const d1Y = pctMap["1Y"] ?? 0;
     const d6M = pctMap["6M"] ?? 0;
+    const d3M = pctMap["3M"] ?? 0;
     const d1M = pctMap["1M"] ?? 0;
     const d1W = pctMap["1W"] ?? 0;
     const d1D = pctMap["1D"] ?? 0;
 
     const weighted =
-      0.10*d3Y +
-      0.20*d1Y +
-      0.25*d6M +
-      0.20*d1M +
-      0.15*d1W +
-      0.10*d1D;
+      0.15*d1Y +
+      0.30*d6M +
+      0.25*d3M +
+      0.15*d1M +
+      0.10*d1W +
+      0.05*d1D;
+
     let score = 50 + weighted*1.2;
     if (!Number.isFinite(score)) score = 50;
     return Math.max(0, Math.min(100, score));
   }
 
+  // AccelerationScore：趋势变化是否在变好（多周期斜率差）
   function computeAccelerationScore(pctMap) {
-    const d3Y = pctMap["3Y"] ?? 0;
     const d1Y = pctMap["1Y"] ?? 0;
     const d6M = pctMap["6M"] ?? 0;
+    const d3M = pctMap["3M"] ?? 0;
     const d1M = pctMap["1M"] ?? 0;
     const d1W = pctMap["1W"] ?? 0;
 
     const acc1 = d1W - d1M;
-    const acc2 = d1M - d6M;
-    const acc3 = d6M - d1Y;
-    const acc4 = d1Y - d3Y;
+    const acc2 = d1M - d3M;
+    const acc3 = d3M - d6M;
+    const acc4 = d6M - d1Y;
     const accs = [acc1,acc2,acc3,acc4];
     const pos = accs.filter(a=>a>0).length;
     const neg = accs.filter(a=>a<0).length;
@@ -786,8 +795,94 @@
     return Math.max(0, Math.min(100, score));
   }
 
+  // VolatilityScore：6M 日波动率，越稳分越高
+  function computeVolatilityScore(series6M) {
+    if (!Array.isArray(series6M) || series6M.length < 10) return 50;
+
+    const returns = [];
+    for (let i = 1; i < series6M.length; i++) {
+      const p0 = series6M[i-1];
+      const p1 = series6M[i];
+      if (p0 != null && p1 != null && p0 > 0 && p1 > 0) {
+        returns.push(Math.log(p1 / p0));
+      }
+    }
+    if (returns.length < 5) return 50;
+
+    const mean = returns.reduce((a,b)=>a+b,0) / returns.length;
+    let varSum = 0;
+    for (const r of returns) {
+      varSum += (r - mean) * (r - mean);
+    }
+    const variance = varSum / (returns.length - 1);
+    if (!Number.isFinite(variance) || variance <= 0) return 70;
+
+    const vol = Math.sqrt(variance); // 日波动率
+    const maxVol = 0.05; // 5% 当作极限
+    const v = Math.min(vol, maxVol) / maxVol; // 0~1
+
+    // 0% → 100 分,  5% → 20 分
+    let score = 100 - v * 80;
+    if (!Number.isFinite(score)) score = 50;
+    return Math.max(0, Math.min(100, score));
+  }
+
+  // EMA 工具 + MACDScore（6M 日线 MACD）
+  function ema(arr, period) {
+    const k = 2 / (period + 1);
+    const out = [];
+    let prev = null;
+    for (let i = 0; i < arr.length; i++) {
+      const price = arr[i];
+      if (price == null) continue;
+      if (prev == null) {
+        prev = price;
+      } else {
+        prev = price * k + prev * (1 - k);
+      }
+      out.push(prev);
+    }
+    return out;
+  }
+
+  function computeMACDScore(series6M) {
+    if (!Array.isArray(series6M) || series6M.length < 35) return 50;
+
+    const closes = series6M.filter(v => v != null);
+    if (closes.length < 35) return 50;
+
+    const ema12 = ema(closes, 12);
+    const ema26 = ema(closes, 26);
+
+    const macdLine = [];
+    for (let i = 0; i < ema26.length; i++) {
+      const idx = i + (closes.length - ema26.length);
+      const e12 = ema12[idx];
+      const e26 = ema26[i];
+      if (e12 != null && e26 != null) {
+        macdLine.push(e12 - e26);
+      }
+    }
+    if (macdLine.length < 10) return 50;
+
+    const signal = ema(macdLine, 9);
+    const hist = macdLine[macdLine.length - 1] - signal[signal.length - 1];
+
+    const lastClose = closes[closes.length - 1];
+    if (!lastClose || !Number.isFinite(hist)) return 50;
+
+    const ratio = hist / lastClose;
+    let x = ratio * 100; // 百分比
+    x = Math.max(-5, Math.min(5, x)); // 限制在 [-5, +5]
+
+    // -5% → 0 分； 0% → 50 分； +5% → 100 分
+    let score = 50 + x * 10;
+    if (!Number.isFinite(score)) score = 50;
+    return Math.max(0, Math.min(100, score));
+  }
+
+  // BuyScore 2.x：Position + Trend + Accel + Vol + MACD
   function computeBuyScore(seriesPerPeriod, pctMap) {
-    // 如果所有周期都没有有效数据，直接返回 null
     const hasValidSeries = Object.values(seriesPerPeriod).some(
       s => Array.isArray(s) && s.length >= 2
     );
@@ -796,7 +891,9 @@
         buyScore: null,
         posScore: null,
         trendScore: null,
-        accelScore: null
+        accelScore: null,
+        volScore: null,
+        macdScore: null,
       };
     }
 
@@ -804,17 +901,27 @@
     const trendScore = computeTrendScore(pctMap);
     const accelScore = computeAccelerationScore(pctMap);
 
+    const series6M = seriesPerPeriod["6M"];
+    const volScore  = computeVolatilityScore(series6M);
+    const macdScore = computeMACDScore(series6M);
+
     let buy =
-      0.35*posScore +
-      0.40*trendScore +
-      0.25*accelScore;
+      0.28*posScore +
+      0.32*trendScore +
+      0.20*accelScore +
+      0.10*volScore +
+      0.10*macdScore;
+
     if (!Number.isFinite(buy)) buy = 50;
     buy = Math.max(0, Math.min(100, buy));
+
     return {
       buyScore: Math.round(buy),
       posScore,
       trendScore,
-      accelScore
+      accelScore,
+      volScore,
+      macdScore
     };
   }
 
@@ -1043,7 +1150,7 @@
     container.innerHTML = html;
   }
 
-  function renderBuyScore(symbol, buyScore, posScore, trendScore, accelScore) {
+  function renderBuyScore(symbol, buyScore, posScore, trendScore, accelScore, volScore, macdScore) {
     const el = document.getElementById(`${symbol}_buyscore`);
     if (!el) return;
     if (buyScore == null || Number.isNaN(buyScore)) {
@@ -1061,10 +1168,12 @@
     el.className = cls;
     el.textContent = String(buyScore);
     el.title =
-      `Position score: ${Math.round(posScore)}\n` +
-      `Trend score: ${Math.round(trendScore)}\n` +
-      `Acceleration score: ${Math.round(accelScore)}\n` +
-      `Final BuyScore: ${buyScore}`;
+      `Position:     ${Math.round(posScore)}\n` +
+      `Trend:        ${Math.round(trendScore)}\n` +
+      `Acceleration: ${Math.round(accelScore)}\n` +
+      `Volatility:   ${Math.round(volScore)}\n` +
+      `MACD:         ${Math.round(macdScore)}\n` +
+      `BuyScore v2:  ${buyScore}`;
   }
 
   function applyFilters() {
@@ -1380,9 +1489,9 @@
         }
 
         renderPositionCell(symbol, seriesPerPeriod);
-        const { buyScore, posScore, trendScore, accelScore } =
+        const { buyScore, posScore, trendScore, accelScore, volScore, macdScore } =
           computeBuyScore(seriesPerPeriod, pctMap);
-        renderBuyScore(symbol, buyScore, posScore, trendScore, accelScore);
+        renderBuyScore(symbol, buyScore, posScore, trendScore, accelScore, volScore, macdScore);
         row.dataset.buyscore = buyScore == null ? "" : String(buyScore);
       } catch (rowErr) {
         console.error("Row-level error", row.dataset.symbol, rowErr);
